@@ -5,6 +5,8 @@ Combines previous software packages into one. <br /> <br />
   1: Controlpanel <br />
   2: Scoreboard output <br />
   3: Led boarding output <br />
-  <br /> Main.mp4 and Gameday.mp4 are needed in the main folder for the boarding to work (working on a way to import them).
+# Important notes:
+  Main.mp4 and Gameday.mp4 are needed in the main folder for the boarding to work (working on a way to import them).
+  <br /> default.jpg is located in the main folder because it still needs to be updated in the code to copy from the media folder.
 
 # This is still a work in process...
