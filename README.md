@@ -5,5 +5,6 @@ Combines previous software packages into one. <br /> <br />
   1: Controlpanel <br />
   2: Scoreboard output <br />
   3: Led boarding output <br />
+  <br /> Main.mp4 and Gameday.mp4 are needed in the main folder for the boarding to work (working on a way to import them).
 
-#This is still a work in process...
+# This is still a work in process...
