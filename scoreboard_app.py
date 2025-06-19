@@ -66,6 +66,11 @@ timer_margin_left = 0
 timer_margin_bottom = 5
 timer_margin_right = 0
 
+# settings displays
+controlpanel_display_number = 0
+scoreboard_display_number = 1
+ledboarding_display_number = 2
+
 class DraggableListWidget(QListWidget):
     def __init__(self, playlist, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -107,7 +112,7 @@ class ScoreboardDisplay(QWidget):
 
         screen_count = QApplication.desktop().screenCount()
         if screen_count > 1:
-            screen_rect = QApplication.desktop().screenGeometry(1)
+            screen_rect = QApplication.desktop().screenGeometry(scoreboard_display_number)
             self.move(screen_rect.left(), screen_rect.top())
 
         self.stack = QStackedLayout()
@@ -396,7 +401,7 @@ class ControlPanel(QWidget):
 
             return
 
-        screen = screens[2]
+        screen = screens[ledboarding_display_number]
         geo = screen.geometry()
         if hasattr(self, "loop_window") and self.loop_window:
             self.loop_window.close()
@@ -452,6 +457,7 @@ class ControlPanel(QWidget):
 
     def initUI(self):
         self.setWindowTitle("Ridepulse System")
+        self.move(QApplication.screens()[controlpanel_display_number].geometry().topLeft())
         self.showMaximized()
 
         self.setStyleSheet("""
