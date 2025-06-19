@@ -1,0 +1,29 @@
+{
+  "score_font": "Segui UI",
+  "score_font_size": 30,
+  "score_font_color": "color: white;",
+  "score_margin_top": 4,
+  "score_margin_left": 0,
+  "score_margin_bottom": 0,
+  "score_margin_right": 0,
+
+  "name_font": "Rubik",
+  "name_font_size": 12,
+  "name_font_color": "color: white;",
+  "name_margin_top": 0,
+  "name_margin_left": 0,
+  "name_margin_bottom": 0,
+  "name_margin_right": 0,
+
+  "timer_font": "Segui UI",
+  "timer_font_size": 40,
+  "timer_font_color": "color: white;",
+  "timer_margin_top": 0,
+  "timer_margin_left": 0,
+  "timer_margin_bottom": 5,
+  "timer_margin_right": 0,
+
+  "controlpanel_display_number": 0,
+  "scoreboard_display_number": 1,
+  "ledboarding_display_number": 2
+}
