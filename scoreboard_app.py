@@ -36,40 +36,56 @@ sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
 
 devices = sp.devices()
 if not devices['devices']:
-    QMessageBox.warning(self, "Spotify issue", "Open Spotify on a device.")
+    print("open spotify!")
 else:
     device_id = devices['devices'][0]['id']
 sp.volume(100, device_id=device_id)
 
+config_file = "config.json"
+
+if not os.path.exists(config_file):
+    app = QApplication([])
+    QMessageBox.critical(None, "Configuratiefout", f"Kan het configuratiebestand '{config_file}' niet vinden.")
+    sys.exit(1)
+
+try:
+    with open(config_file, "r") as f:
+        config = json.load(f)
+except json.JSONDecodeError:
+    app = QApplication([])
+    QMessageBox.critical(None, "Configuratiefout", f"'{config_file}' bevat geen geldige JSON.")
+    sys.exit(1)
+
+
 # settings scorebord
-score_font = "Segui UI"
-score_font_size = 30  # 28 is maximum
-score_font_color = "color: white;"
-score_margin_top = 4
-score_margin_left = 0
-score_margin_bottom = 0
-score_margin_right = 0
+score_font = config["score_font"]
+score_font_size = config["score_font_size"]
+score_font_color = config["score_font_color"]
+score_margin_top = config["score_margin_top"]
+score_margin_left = config["score_margin_left"]
+score_margin_bottom = config["score_margin_bottom"]
+score_margin_right = config["score_margin_right"]
 
-name_font = "Rubik"
-name_font_size = 12
-name_font_color = "color: white;"
-name_margin_top = 0
-name_margin_left = 0
-name_margin_bottom = 0
-name_margin_right = 0
+name_font = config["name_font"]
+name_font_size = config["name_font_size"]
+name_font_color = config["name_font_color"]
+name_margin_top = config["name_margin_top"]
+name_margin_left = config["name_margin_left"]
+name_margin_bottom = config["name_margin_bottom"]
+name_margin_right = config["name_margin_right"]
 
-timer_font = "Segui UI"
-timer_font_size = 40
-timer_font_color = "color: white;"
-timer_margin_top = 0
-timer_margin_left = 0
-timer_margin_bottom = 5
-timer_margin_right = 0
+timer_font = config["timer_font"]
+timer_font_size = config["timer_font_size"]
+timer_font_color = config["timer_font_color"]
+timer_margin_top = config["timer_margin_top"]
+timer_margin_left = config["timer_margin_left"]
+timer_margin_bottom = config["timer_margin_bottom"]
+timer_margin_right = config["timer_margin_right"]
 
-# settings displays
-controlpanel_display_number = 0
-scoreboard_display_number = 1
-ledboarding_display_number = 2
+# display-instellingen
+controlpanel_display_number = config["controlpanel_display_number"]
+scoreboard_display_number = config["scoreboard_display_number"]
+ledboarding_display_number = config["ledboarding_display_number"]
 
 class DraggableListWidget(QListWidget):
     def __init__(self, playlist, *args, **kwargs):
@@ -382,7 +398,7 @@ class ControlPanel(QWidget):
 
         self.loop_instance = vlc.Instance()
         self.loop_player = self.loop_instance.media_player_new()
-        self.loop_video_path = 'default.jpg' # Standaard layout foto
+        self.loop_video_path = os.path.join("Media", "default.jpg") # Standaard layout foto
         self.start_loop_video()
 
     def create_button(self, text, callback):
