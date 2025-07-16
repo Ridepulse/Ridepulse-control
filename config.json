@@ -25,5 +25,13 @@
 
   "controlpanel_display_number": 0,
   "scoreboard_display_number": 1,
-  "ledboarding_display_number": 2
+  "ledboarding_display_number": 2,
+
+  "database_url": "https://open.spotify.com/playlist/07vuLI875maidRM60L6rjV?si=61f5f5015af34261",
+  "halftime_url": "https://open.spotify.com/playlist/5mCSX2xOfz36RGraeFSGRo?si=cf9237d90e93408e",
+  "pregame_url": "https://open.spotify.com/playlist/6OhoNbXkzzltrDNj12UFzT?si=69930d487cf148b3",
+  "win_url": "https://open.spotify.com/playlist/0McXB0TUQ4wv7rGdQuDJhZ?si=34a0b8b962704a53",
+  "lose_url": "https://open.spotify.com/playlist/0NLX1L4Zo2SPx5lNHF6Ywy?si=82993e6aa8f04b10"
+
+
 }
