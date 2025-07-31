@@ -5,12 +5,13 @@ import time
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout,
     QPushButton, QLineEdit, QFileDialog, QStackedLayout,
-    QListWidget, QMessageBox, QAbstractItemView
+    QListWidget, QMessageBox, QAbstractItemView, QSizePolicy
 )
 from PyQt5.QtCore import Qt, QTimer, QUrl, QTime
 from PyQt5.QtGui import QFont, QPixmap, QFontDatabase
 from PyQt5.QtTest import QTest
 import vlc
+from PyQt5.QtMultimediaWidgets import QVideoWidget
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
@@ -255,7 +256,14 @@ class ScoreboardDisplay(QWidget):
         self.sponsor_label.setStyleSheet("background-color: black;")
         self.sponsor_label.setAlignment(Qt.AlignCenter)
 
+        self.video_widget = QVideoWidget()
+        self.video_widget.setFixedSize(360, 180)
+        self.video_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.video_widget.setStyleSheet("background-color: black;")
+        self.video_widget.hide()
+
         sponsor_layout.addWidget(self.sponsor_label)
+        sponsor_layout.addWidget(self.video_widget)
         sponsor_container.setLayout(sponsor_layout)
 
         # --- BOTTOM Scoreboard (360 width) ---
@@ -345,10 +353,7 @@ class ControlPanel(QWidget):
         super().__init__()
         self.display = display_window
         self.is_fullscreen = False
-        self.top_video_playlist = []
         self.vlc_instance = vlc.Instance()
-        self.top_video_index = 0
-        self.top_video_player = self.vlc_instance.media_player_new()
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_timer)
@@ -358,6 +363,7 @@ class ControlPanel(QWidget):
         self.lineup_inputs = []
         self.lineup_index = 0
         self.lineup_files = []
+        self.top_video_playlist = []
 
         self.goal_input = QLineEdit()
         self.wissel_input = QLineEdit()
@@ -382,15 +388,9 @@ class ControlPanel(QWidget):
         self.proleague_sound = QMediaPlayer()
         self.proleague_sound.setMedia(QMediaContent(QUrl.fromLocalFile(os.path.abspath(PROLEAGUE_SOUND))))
         self.initUI()
-        self.load_playlists()
         self.load_sponsor_folder()
         self.vlc_instance = vlc.Instance()
-        self.load_playlists()
-        self.top_video_playlist = []
-        self.current_playlist_index = 0
-        self.playlist_loop_active = True
 
-        self.media_player = self.vlc_instance.media_player_new()
         self.start_sponsors_loop()
 
         self.loop_instance = vlc.Instance()
@@ -398,10 +398,22 @@ class ControlPanel(QWidget):
         self.loop_video_path = os.path.join("Media", "default.jpg") # Standaard layout foto
         self.start_loop_video()
 
+        self.qmedia_player = QMediaPlayer(self, QMediaPlayer.VideoSurface)
+        self.qmedia_player.setVideoOutput(self.display.video_widget)
+        self.qmedia_player.setMuted(True)
+        self.qmedia_player.mediaStatusChanged.connect(self.on_media_status_changed)
+
     def create_button(self, text, callback):
         btn = QPushButton(text)
         btn.clicked.connect(callback)
         return btn
+
+    def on_media_status_changed(self, status):
+        if status == QMediaPlayer.EndOfMedia:
+            self.qmedia_player.stop()
+            self.display.video_widget.hide()
+            self.display.sponsor_label.show()
+            QTimer.singleShot(500, self.show_next_sponsor)
 
     def start_loop_video(self):
         if not os.path.exists(self.loop_video_path):
@@ -551,41 +563,6 @@ class ControlPanel(QWidget):
         scoreboard_layout.addWidget(self.create_button("Toggle Fullscreen", self.toggle_fullscreen))
         scoreboard_layout.addWidget(self.create_button("Exit", self.exit_application))
 
-        # --- Video Section --- (Top Video Playlist)
-        video_layout = QVBoxLayout()
-        video_layout.setSpacing(10)
-
-        video_layout.addWidget(QLabel("Top Video Playlist"))
-
-        self.top_video_files = []
-        self.top_video_list = QListWidget()
-        self.top_video_list.setMinimumHeight(100)
-        video_layout.addWidget(self.top_video_list)
-
-        video_layout.addWidget(self.create_button("Add file", self.add_top_video))
-        video_layout.addWidget(self.create_button("Remove selected file", self.remove_top_video))
-        video_layout.addWidget(QLabel(""))
-        video_layout.addWidget(self.create_button("Start playlist", self.start_top_video_playlist))
-        video_layout.addWidget(self.create_button("Stop playlist", self.stop_top_playlist))
-        video_layout.addWidget(self.create_button("Save playlist", self.save_playlists))
-        video_layout.addWidget(QLabel(""))
-        self.loop_checkbox = QPushButton("Loop AAN")
-        self.loop_checkbox.setCheckable(True)
-        self.loop_checkbox.setChecked(True)
-        self.loop_checkbox.clicked.connect(self.toggle_loop)
-        video_layout.addWidget(self.loop_checkbox)
-        self.fullscreen_checkbox = QPushButton("Scorebord is visible")
-        self.fullscreen_checkbox.setCheckable(True)
-        self.fullscreen_checkbox.setChecked(False)
-        self.fullscreen_checkbox.clicked.connect(self.toggle_fullscreen_playlist)
-        video_layout.addWidget(self.fullscreen_checkbox)
-
-        video_layout.addWidget(self.mute_button)
-
-        video_layout.addWidget(QLabel(""))
-        video_layout.addWidget(self.create_button("Add Sponsor Files", self.add_sponsor_files))
-        video_layout.addWidget(self.create_button("Remove sponsor(s)", self.remove_sponsor_files))
-
         lineup_layout = QVBoxLayout()
         lineup_layout.setSpacing(10)
         lineup_layout.addWidget(QLabel("Line-up Players"))
@@ -630,7 +607,6 @@ class ControlPanel(QWidget):
         loop_video_layout.addWidget(self.create_button("Reset boarding", lambda: self.reset_loop_video(os.path.join("Media", "default.jpg"))))
 
         main_layout.addLayout(scoreboard_layout, 1)
-        main_layout.addLayout(video_layout, 1)
         main_layout.addLayout(lineup_layout, 1)
         main_layout.addLayout(spotify_layout, 1)
         main_layout.addLayout(loop_video_layout, 1)
@@ -729,114 +705,6 @@ class ControlPanel(QWidget):
 
         QMessageBox.information(self, "Sponsors successfully removed",
                                 f"{len(selected_files)} sponsors are successfully removed and they are archived to 'sponsors_archive'")
-
-    def add_top_video(self):
-        files, _ = QFileDialog.getOpenFileNames(self, "Kies videobestanden", "", "Video Files (*.mp4 *.avi *.mov)")
-        for f in files:
-            if f not in self.top_video_files:
-                self.top_video_files.append(f)
-                self.top_video_list.addItem(f)
-
-    def remove_top_video(self):
-        current_row = self.top_video_list.currentRow()
-        if current_row >= 0:
-            self.top_video_files.pop(current_row)
-            self.top_video_list.takeItem(current_row)
-
-    def play_next_top_video(self):
-        if not self.top_video_playing or not self.top_video_files:
-            return
-
-        if self.top_video_index >= len(self.top_video_files):
-            if self.loop_checkbox.isChecked():
-                self.top_video_index = 0
-            else:
-                self.top_video_playing = False
-                return
-
-        video_path = self.top_video_files[self.top_video_index]
-        if not os.path.exists(video_path):
-            self.top_video_index += 1
-            QTimer.singleShot(100, self.play_next_top_video)
-            return
-
-        # --- Bepaal doel-label en stack ---
-        if self.playlist_fullscreen:
-            self.display.stack.setCurrentIndex(1)
-            target_label = self.display.lineup_label
-        else:
-            self.display.stack.setCurrentIndex(0)
-            target_label = self.display.sponsor_label
-
-        target_label.clear()
-        target_label.show()
-        QApplication.processEvents()
-
-        # --- Zet media en output ---
-        media = self.vlc_instance.media_new(video_path)
-        self.top_video_player.set_media(media)
-        self.top_video_player.audio_set_mute(self.mute_button.isChecked())
-
-        if sys.platform.startswith("linux"):
-            self.top_video_player.set_xwindow(int(target_label.winId()))
-        else:
-            self.top_video_player.set_hwnd(int(target_label.winId()))
-
-        self.top_video_player.play()
-
-        # --- Einde video event ---
-        def handle_end(event):
-            if not self.top_video_playing:
-                return
-            self.top_video_index += 1
-            QTimer.singleShot(200, self.play_next_top_video)
-
-        # Zorg dat er geen dubbele event handlers zijn
-        event_manager = self.top_video_player.event_manager()
-        event_manager.event_detach(vlc.EventType.MediaPlayerEndReached)
-        event_manager.event_attach(vlc.EventType.MediaPlayerEndReached, handle_end)
-
-    def finish_top_video(self, player):
-        player.stop()
-        del player
-        self.top_video_index += 1
-        self.play_next_top_video()
-
-    def start_top_video_playlist(self):
-        if not self.top_video_files:
-            QMessageBox.information(self, "Geen video's", "De afspeellijst is leeg.")
-            return
-
-        self.top_video_index = 0
-        self.top_video_playing = True
-        self.play_next_top_video()
-
-    def stop_top_video_playlist(self):
-        self.top_video_playing = False
-        self.top_video_index = 0
-
-        if self.top_video_player:
-            self.top_video_player.stop()
-
-        self.display.stack.setCurrentIndex(0)
-        self.display.sponsor_label.clear()
-        self.display.sponsor_label.hide()
-        self.display.lineup_label.clear()
-        self.display.lineup_label.hide()
-
-    def load_playlists(self):
-        if os.path.exists(PLAYLIST_FILE):
-            with open(PLAYLIST_FILE, 'r') as f:
-                data = json.load(f)
-                self.top_video_files = data.get("top", [])
-        if hasattr(self, 'top_video_list'):
-            self.top_video_list.clear()
-            self.top_video_list.addItems(self.top_video_files)
-
-    def save_playlists(self):
-        data = {"top": self.top_video_files}
-        with open(PLAYLIST_FILE, 'w') as f:
-            json.dump(data, f)
 
     def spotify_next(self):
         sp.next_track(device_id=device_id)
@@ -1023,127 +891,7 @@ class ControlPanel(QWidget):
         except Exception:
             QMessageBox.critical(self, "Invalid Format", "Please enter MM:SS")
 
-    def add_video(self):
-        filename, _ = QFileDialog.getOpenFileName(self, "Add Video")
-        if filename:
-            self.top_video_playlist.append(filename)
-            self.top_list.addItem(filename)
-
-    def remove_video(self):
-        current = self.top_list.currentRow()
-        if current >= 0:
-            self.top_video_playlist.pop(current)
-            self.top_list.takeItem(current)
-
-    def play_top_playlist(self):
-        self.top_video_player.stop()
-
-        if not self.top_video_playlist:
-            print("No videos in playlist.")
-            return
-
-        self.current_playlist_index = 0
-        self.playlist_loop_active = True
-        self.play_next_video()
-
-    def play_next_video(self):
-        try:
-           if not self.playlist_loop_active:
-                return
-                self.current_playlist_index = (self.current_playlist_index + 1) % len(self.top_video_playlist)
-                video_path = self.top_video_playlist[self.current_playlist_index]
-                media = self.top_video_player.media_new(video_path)
-                self.top_video_vlc.set_media(media)
-                self.top_video_vlc.play()
-                self.top_video_vlc.audio_set_mute(self.mute_button.isChecked())
-
-        except Exception as e:
-            print(f"Error in play_next_video: {e}")
-
-        if not self.top_video_player or not self.display.top_video_label:
-            print("Video player or display label not initialized.")
-            return
-
-        if self.current_playlist_index >= len(self.top_video_playlist):
-            self.current_playlist_index = 0  # Loop back to start
-
-        video_path = self.top_video_playlist[self.current_playlist_index]
-
-        if not os.path.exists(video_path):
-            print(f"Video file not found: {video_path}")
-            self.current_playlist_index += 1
-            QTimer.singleShot(500, self.play_next_video)
-            return
-
-        media = self.vlc_instance.media_new(video_path)
-        self.top_video_player.set_media(media)
-        self.display.top_video_label.show()
-        QTest.qWait(50)
-        try:
-            if sys.platform.startswith('linux'):
-                self.top_video_player.set_xwindow(int(self.display.top_video_label.winId()))
-            else:
-                self.top_video_player.set_hwnd(int(self.display.top_video_label.winId()))
-        except Exception as e:
-            print(f"Failed to set video output window: {e}")
-            self.current_playlist_index += 1
-            QTimer.singleShot(1000, self.play_next_video)
-            return
-        self.top_video_player.audio_set_mute(self.mute_button.isChecked())
-        self.top_video_player.play()
-
-        def check_duration():
-            duration = self.top_video_player.get_length()
-            if duration > 0:
-                print(f"Duration: {duration}ms")
-                QTimer.singleShot(duration, self.play_next_video)
-                self.current_playlist_index += 1
-            else:
-                # Try again after a short wait
-                QTimer.singleShot(200, check_duration)
-
-        QTimer.singleShot(200, check_duration)
-
-    def play_video(self):
-        if self.top_video_index >= len(self.top_video_playlist):
-            self.top_video_index = 0  # Loop
-        media = self.vlc_instance.media_new(self.top_video_playlist[self.top_video_index])
-        self.top_video_player.set_media(media)
-        if sys.platform.startswith('linux'):
-            self.top_video_player.set_xwindow(int(self.display.sponsor_label.winId()))
-        else:
-            self.top_video_player.set_hwnd(int(self.display.sponsor_label.winId()))
-
-        # Use VLC event instead of polling
-        events = self.top_video_player.event_manager()
-        events.event_attach(vlc.EventType.MediaPlayerEndReached, self.on_video_end)
-
-        self.top_video_player.play()
-
-    def on_video_end(self, event):
-        self.top_video_index += 1
-        self.play_video()
-
-    def stop_top_playlist(self):
-        self.top_video_player.stop()
-
-    def load_playlists(self):
-        if os.path.exists(PLAYLIST_FILE):
-            with open(PLAYLIST_FILE, 'r') as f:
-                data = json.load(f)
-                self.top_video_playlist = data.get("top", [])
-
-        if hasattr(self, 'top_list'):
-            self.top_list.clear()
-            self.top_list.addItems(self.top_video_playlist)
-
-    def save_playlists(self):
-        data = {"top": self.top_video_playlist}
-        with open(PLAYLIST_FILE, 'w') as f:
-            json.dump(data, f)
-
     def start_sponsors_loop(self):
-        self.top_video_player.stop()
         folder_path = "Sponsors"
         if not os.path.isdir(folder_path):
             return
@@ -1159,44 +907,27 @@ class ControlPanel(QWidget):
 
         file_path = self.sponsor_files[self.sponsor_index]
         self.sponsor_index = (self.sponsor_index + 1) % len(self.sponsor_files)
-
         ext = os.path.splitext(file_path)[1].lower()
 
+        abs_path = os.path.abspath(file_path)
+
         if ext in [".png", ".jpg", ".jpeg"]:
-            self.display.sponsor_label.clear()
-            pixmap = QPixmap(file_path).scaled(
-                self.display.sponsor_label.width(), self.display.sponsor_label.height(),
-                Qt.IgnoreAspectRatio, Qt.SmoothTransformation
+            self.display.video_widget.hide()
+            self.display.sponsor_label.show()
+            pixmap = QPixmap(abs_path).scaled(
+                self.display.sponsor_label.width(),
+                self.display.sponsor_label.height(),
+                Qt.IgnoreAspectRatio,
+                Qt.SmoothTransformation
             )
             self.display.sponsor_label.setPixmap(pixmap)
+            self.image_timer.start(5000)
 
-            self.video_timer.stop()
-            self.image_timer.start(5000)  # Show image for 5 seconds
-        elif ext in [".mp4", ".avi", ".mov"]:
-            self.image_timer.stop()
-            self.display.sponsor_label.clear()
-
-            if self.media_player.is_playing():
-                self.media_player.stop()
-
-            media = self.vlc_instance.media_new(file_path)
-            self.media_player.set_media(media)
-            self.media_player.audio_set_mute(self.mute_button.isChecked())
-
-            if sys.platform.startswith("linux"):
-                self.media_player.set_xwindow(int(self.display.sponsor_label.winId()))
-            else:
-                self.media_player.set_hwnd(int(self.display.sponsor_label.winId()))
-
-            self.media_player.play()
-
-            def poll_video_finished():
-                if not self.media_player.is_playing():
-                    QTimer.singleShot(100, self.show_next_sponsor)
-                else:
-                    QTimer.singleShot(200, poll_video_finished)
-
-            QTimer.singleShot(100, poll_video_finished)
+        elif ext in [".mp4", ".mov", ".avi"]:
+            self.display.sponsor_label.hide()
+            self.display.video_widget.show()
+            self.qmedia_player.setMedia(QMediaContent(QUrl.fromLocalFile(abs_path)))
+            self.qmedia_player.play()
 
     def start_video_timer(self):
         duration = self.media_player.get_length()
