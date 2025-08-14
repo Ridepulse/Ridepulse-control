@@ -9,7 +9,6 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QTimer, QUrl, QTime
 from PyQt5.QtGui import QFont, QPixmap, QFontDatabase
-from PyQt5.QtTest import QTest
 import vlc
 from PyQt5.QtMultimediaWidgets import QVideoWidget
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
@@ -417,7 +416,7 @@ class ControlPanel(QWidget):
 
     def start_loop_video(self):
         if not os.path.exists(self.loop_video_path):
-            QMessageBox.warning(self, "File not found", f"Could not find: {video_path} ")
+            QMessageBox.warning(self, "File not found", f"Could not find: {self.loop_video_path} ")
             return
 
         screens = QApplication.screens()
@@ -954,11 +953,17 @@ class ControlPanel(QWidget):
             return
 
         self.lineup_index = 0
-        self.display.stack.setCurrentIndex(1)  # show lineup
+        self.display.lineup_label.clear()
         self.display.lineup_label.show()
-        self.lineup_event_attached = False  # <- initialize flag
-        self.lineup_vlc_instance = vlc.Instance()
-        self.lineup_video_player = self.lineup_vlc_instance.media_player_new()
+        self.display.stack.setCurrentIndex(1)  # show lineup layer
+
+
+        # STOP EN HERGEBRUIK bestaande player indien nodig
+        if hasattr(self, 'lineup_video_player'):
+            self.lineup_video_player.stop()
+        else:
+            self.lineup_vlc_instance = vlc.Instance()
+            self.lineup_video_player = self.lineup_vlc_instance.media_player_new()
         self.play_next_lineup_video()
 
     def play_next_lineup_video(self):
@@ -985,6 +990,7 @@ class ControlPanel(QWidget):
             self.lineup_video_player.set_hwnd(int(self.display.lineup_label.winId()))
 
         self.lineup_video_player.play()
+
         def check_duration_and_queue_next():
             duration = self.lineup_video_player.get_length()
             if duration > 0:
