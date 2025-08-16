@@ -20,7 +20,7 @@ The correct screen can be edited in the config file.
   <br /> ❌ Makkelijkere manier vinden om presets toe te voegen. (Mss via config file?)
   <br /> ❌ Spotify openen bij opstart => crash voorkomeno!
   <br /> ❗❌ TIME REMAINING nog tonen!
-  RESET NAAR STACK VAN SCOREBORD IPV LINEUP OF GOAL KNOP!!
+  RESET NAAR STACK VAN SCOREBORD IPV LINEUP OF GOAL KNOP!! + BUG ALS GREG AFGELOPEN IS!
 
 
 # This is still a work in process...
