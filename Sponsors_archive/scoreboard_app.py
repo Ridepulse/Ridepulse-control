@@ -4,10 +4,12 @@ import os
 import time
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLineEdit, QFileDialog, QStackedLayout, QMessageBox, QSizePolicy
+    QPushButton, QLineEdit, QFileDialog, QStackedLayout,
+    QListWidget, QMessageBox, QAbstractItemView, QSizePolicy
 )
 from PyQt5.QtCore import Qt, QTimer, QUrl, QTime
 from PyQt5.QtGui import QFont, QPixmap, QFontDatabase
+from PyQt5.QtTest import QTest
 import vlc
 from PyQt5.QtMultimediaWidgets import QVideoWidget
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
@@ -19,10 +21,7 @@ import subprocess
 PLAYLIST_FILE = 'video_playlists.json'
 GOAL_SOUND = os.path.join("Media", "goal.mp3")
 PROLEAGUE_SOUND = os.path.join("Media", "proleague.mp3")
-PREGAME_MIXTAPE = os.path.join("Media", "pregame_mixtape.mp3")
-COUNTDOWN = os.path.join("Media", "countdown.mp3")
-video_path_lineup = 'Line-up-Visuals'
-video_path_goal = 'Goal-Visuals'
+video_path_lineup = 'Line-up'
 
 # SPOTIFY API GEGEVENS
 CLIENT_ID = "608e84d64a84485988c331ecaed17027"
@@ -43,6 +42,7 @@ if not devices['devices']:
     print("open spotify!")
 else:
     device_id = devices['devices'][0]['id']
+sp.volume(100, device_id=device_id)
 
 config_file = "config.json"
 
@@ -96,9 +96,6 @@ HALFTIME_URL = config["halftime_url"]
 PREGAME_URL = config["pregame_url"]
 WIN_URL = config["win_url"]
 LOSE_URL = config["lose_url"]
-
-#settings sponsors
-sponsor_duration = config["sponsor_duration"]
 
 class ScoreboardDisplay(QWidget):
     def __init__(self):
@@ -356,9 +353,10 @@ class ControlPanel(QWidget):
         super().__init__()
         self.display = display_window
         self.is_fullscreen = False
+        self.top_video_playlist = []
         self.vlc_instance = vlc.Instance()
-        self.lineup_vlc_instance = vlc.Instance()
-        self.lineup_video_player = self.lineup_vlc_instance.media_player_new()
+        self.top_video_index = 0
+        self.top_video_player = self.vlc_instance.media_player_new()
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_timer)
@@ -368,7 +366,6 @@ class ControlPanel(QWidget):
         self.lineup_inputs = []
         self.lineup_index = 0
         self.lineup_files = []
-        self.top_video_playlist = []
 
         self.goal_input = QLineEdit()
         self.wissel_input = QLineEdit()
@@ -384,26 +381,27 @@ class ControlPanel(QWidget):
         self.mute_button = QPushButton("Muted")
         self.mute_button.setCheckable(True)
         self.mute_button.setChecked(True)  # Default is muted
+        self.mute_button.clicked.connect(self.toggle_mute)
         self.playlist_fullscreen = False
 
         self.remaining_time = QTime(0, 0, 0)
         self.goal_sound = QMediaPlayer()
         self.goal_sound.setMedia(QMediaContent(QUrl.fromLocalFile(os.path.abspath(GOAL_SOUND))))
-        self.pregame_mixtape = QMediaPlayer()
-        self.pregame_mixtape.setMedia(QMediaContent(QUrl.fromLocalFile(os.path.abspath(PREGAME_MIXTAPE))))
-        self.countdown = QMediaPlayer()
-        self.countdown.setMedia(QMediaContent(QUrl.fromLocalFile(os.path.abspath(COUNTDOWN))))
         self.proleague_sound = QMediaPlayer()
         self.proleague_sound.setMedia(QMediaContent(QUrl.fromLocalFile(os.path.abspath(PROLEAGUE_SOUND))))
         self.initUI()
+        self.load_playlists()
         self.load_sponsor_folder()
         self.vlc_instance = vlc.Instance()
+        self.load_playlists()
+        self.top_video_playlist = []
+        self.current_playlist_index = 0
+        self.playlist_loop_active = True
 
         self.start_sponsors_loop()
 
         self.loop_instance = vlc.Instance()
         self.loop_player = self.loop_instance.media_player_new()
-        self.loop_list_player = self.loop_instance.media_list_player_new()  # ✅ nieuw
         self.loop_video_path = os.path.join("Media", "default.jpg") # Standaard layout foto
         self.start_loop_video()
 
@@ -418,6 +416,7 @@ class ControlPanel(QWidget):
         return btn
 
     def on_media_status_changed(self, status):
+        print(f"Media status: {status}")
         if status == QMediaPlayer.EndOfMedia:
             self.qmedia_player.stop()
             self.display.video_widget.hide()
@@ -426,12 +425,13 @@ class ControlPanel(QWidget):
 
     def start_loop_video(self):
         if not os.path.exists(self.loop_video_path):
-            QMessageBox.warning(self, "File not found", f"Could not find: {self.loop_video_path} ")
+            QMessageBox.warning(self, "File not found", f"Could not find: {video_path} ")
             return
 
         screens = QApplication.screens()
         if len(screens) < 3:
             QMessageBox.warning(self, "Screen issue", f"Only {len(screens)} screens connected.")
+
             return
 
         screen = screens[ledboarding_display_number]
@@ -439,7 +439,6 @@ class ControlPanel(QWidget):
         if hasattr(self, "loop_window") and self.loop_window:
             self.loop_window.close()
 
-        # Maak venster voor de video
         self.loop_window = QWidget()
         self.loop_window.setGeometry(geo)
         self.loop_window.move(geo.topLeft())
@@ -447,36 +446,24 @@ class ControlPanel(QWidget):
         self.loop_window.showFullScreen()
         self.loop_window.raise_()
         self.loop_window.activateWindow()
-        QApplication.processEvents()
-
+        QApplication.processEvents()  # Cruciaal: winId wordt pas dan geldig
+        media = self.loop_instance.media_new(self.loop_video_path)
+        self.loop_player.set_media(media)
         win_id = int(self.loop_window.winId())
         if sys.platform.startswith("linux"):
             self.loop_player.set_xwindow(win_id)
         else:
             self.loop_player.set_hwnd(win_id)
 
-        # Zet video in een MediaList en activeer loop-modus
-        media = self.loop_instance.media_new(self.loop_video_path)
-        try:
-            media.add_option("input-repeat=-1")  # herhaal oneindig
-            media.add_option("no-video-title-show")
-        except Exception:
-            pass
+        self.loop_player.play()
+        def check_loop():
+            state = self.loop_player.get_state()
+            if state == vlc.State.Ended or state == vlc.State.Stopped:
+                #self.loop_player.stop()   (not needed, unless software crashes)
+                self.loop_player.play()
+            QTimer.singleShot(1000, check_loop)
 
-        media_list = self.loop_instance.media_list_new([self.loop_video_path])
-        self.loop_list_player.set_media_list(media_list)
-        self.loop_list_player.set_media_player(self.loop_player)
-        try:
-            self.loop_list_player.set_playback_mode(vlc.PlaybackMode.loop)
-        except Exception:
-            self.loop_list_player.set_playback_mode(1)  # fallback
-
-        # Events om vastlopers te voorkomen
-        em = self.loop_player.event_manager()
-        em.event_attach(vlc.EventType.MediaPlayerPaused, lambda e: self.loop_player.play())
-        em.event_attach(vlc.EventType.MediaPlayerEncounteredError, lambda e: self.loop_list_player.play())
-
-        self.loop_list_player.play()
+        QTimer.singleShot(1000, check_loop)
 
     def set_loop_video(self, video_path):
         if not os.path.exists(video_path):
@@ -484,13 +471,9 @@ class ControlPanel(QWidget):
             return
 
         self.loop_video_path = video_path
-        media_list = self.loop_instance.media_list_new([video_path])
-        self.loop_list_player.set_media_list(media_list)
-        try:
-            self.loop_list_player.set_playback_mode(vlc.PlaybackMode.loop)
-        except Exception:
-            self.loop_list_player.set_playback_mode(1)
-        self.loop_list_player.play()
+        media = self.loop_instance.media_new(video_path)
+        self.loop_player.set_media(media)
+        self.loop_player.play()
 
     def reset_loop_video(self, video_path):
         if not os.path.exists(video_path):
@@ -498,19 +481,12 @@ class ControlPanel(QWidget):
             return
 
         self.loop_video_path = video_path
-        try:
-            self.loop_list_player.stop()
-        except Exception:
-            try:
-                self.loop_player.stop()
-            except Exception:
-                pass
-
+        self.loop_player.stop()
         if hasattr(self, "loop_window") and self.loop_window:
             self.loop_window.close()
             self.loop_window = None
 
-        self.start_loop_video()
+        self.start_loop_video() #herstart nieuw venster met start layout.
 
     def initUI(self):
         self.setWindowTitle("Ridepulse System")
@@ -591,71 +567,90 @@ class ControlPanel(QWidget):
         scoreboard_layout.addWidget(self.create_button("Reset (1e helft)", self.reset_timer_eerstehelft))
         scoreboard_layout.addWidget(self.create_button("Reset (2e helft)", self.reset_timer_tweedehelft))
         scoreboard_layout.addWidget(QLabel(""))
-        scoreboard_layout.addWidget(self.create_button("Add Sponsors", self.add_sponsor_files))
-        scoreboard_layout.addWidget(self.create_button("Remove Sponsors", self.remove_sponsor_files))
         scoreboard_layout.addWidget(self.create_button("Start Sponsors", self.start_sponsors_loop))
-        scoreboard_layout.addWidget(QLabel(""))
         scoreboard_layout.addWidget(self.create_button("Toggle Fullscreen", self.toggle_fullscreen))
         scoreboard_layout.addWidget(self.create_button("Exit", self.exit_application))
+
+        # --- Video Section --- (Top Video Playlist)
+        video_layout = QVBoxLayout()
+        video_layout.setSpacing(10)
+
+        video_layout.addWidget(QLabel("Top Video Playlist"))
+
+        self.top_video_files = []
+        self.top_video_list = QListWidget()
+        self.top_video_list.setMinimumHeight(100)
+        video_layout.addWidget(self.top_video_list)
+
+        video_layout.addWidget(self.create_button("Add file", self.add_top_video))
+        video_layout.addWidget(self.create_button("Remove selected file", self.remove_top_video))
+        video_layout.addWidget(QLabel(""))
+        video_layout.addWidget(self.create_button("Start playlist", self.start_top_video_playlist))
+        video_layout.addWidget(self.create_button("Stop playlist", self.stop_top_playlist))
+        video_layout.addWidget(self.create_button("Save playlist", self.save_playlists))
+        video_layout.addWidget(QLabel(""))
+        self.loop_checkbox = QPushButton("Loop AAN")
+        self.loop_checkbox.setCheckable(True)
+        self.loop_checkbox.setChecked(True)
+        self.loop_checkbox.clicked.connect(self.toggle_loop)
+        video_layout.addWidget(self.loop_checkbox)
+        self.fullscreen_checkbox = QPushButton("Scorebord is visible")
+        self.fullscreen_checkbox.setCheckable(True)
+        self.fullscreen_checkbox.setChecked(False)
+        self.fullscreen_checkbox.clicked.connect(self.toggle_fullscreen_playlist)
+        video_layout.addWidget(self.fullscreen_checkbox)
+
+        video_layout.addWidget(self.mute_button)
+
+        video_layout.addWidget(QLabel(""))
+        video_layout.addWidget(self.create_button("Add Sponsor Files", self.add_sponsor_files))
+        video_layout.addWidget(self.create_button("Remove sponsor(s)", self.remove_sponsor_files))
 
         lineup_layout = QVBoxLayout()
         lineup_layout.setSpacing(10)
         lineup_layout.addWidget(QLabel("Line-up Players"))
-        for i in range(13):
+        for i in range(12):
             line_input = QLineEdit()
             self.lineup_inputs.append(line_input)
             lineup_layout.addWidget(line_input)
 
         lineup_layout.addWidget(self.create_button("Start Line-up Sequence", self.start_lineup))
+        lineup_layout.addWidget(self.create_button("Play Pro League Sound", self.play_proleague_sound))
         lineup_layout.addWidget(QLabel("Goal Visual"))
         lineup_layout.addWidget(self.goal_input)
         lineup_layout.addWidget(self.create_button("Play Goal Visual", self.play_goal_video))
 
+        # --- Wissel Input ---
+        lineup_layout.addWidget(QLabel("OUT and IN"))
+        lineup_layout.addWidget(self.wissel_input)
+        lineup_layout.addWidget(self.create_button("Play Wisselspeler Visual", self.play_wissel_video))
+
         spotify_layout = QVBoxLayout()
         spotify_layout.setSpacing(10)
-        spotify_layout.addWidget(QLabel("Audio"))
-        spotify_layout.addWidget(self.create_button("T-60' - Start Database playlist", self.start_playlist_database))
-        spotify_layout.addWidget(self.create_button("T-30' - Start Pre-game playlist (tot I Gotta Feeling)", self.start_playlist_pregame))
-        spotify_layout.addWidget(self.create_button("T-20' - OMROEP: Opstelling tegenstander + extra", self.dummy_button))
-        spotify_layout.addWidget(
-            self.create_button(
-                "T-18' - Speel Baila de Gasolina (ATCS)",
-                lambda: self.sp.start_playback(uris=["spotify:track:https://open.spotify.com/track/43TPlT0l0HXLtKUOUoY3gY"])
-            )
-        )
-        spotify_layout.addWidget(self.create_button("T-15' - Start 10' mixtape", self.start_pregame_mixtape))
-        spotify_layout.addWidget(self.create_button("T-05' - OMROEP: Opstelling Sporting + extra", self.dummy_button))
-        spotify_layout.addWidget(self.create_button("Start Synrise (Pre-game playlist)", self.start_synrise))
-        spotify_layout.addWidget(QLabel(""))
-        spotify_layout.addWidget(self.create_button("T-3' - Start Countdown", self.start_countdown))
-        spotify_layout.addWidget(self.create_button("T-1' - Play Pro League Hymne", self.play_proleague_hymne))
-        spotify_layout.addWidget(QLabel(""))
+        spotify_layout.addWidget(QLabel("Spotify"))
+        spotify_layout.addWidget(self.create_button("Start Database playlist", self.start_playlist_database))
+        spotify_layout.addWidget(self.create_button("Start Pre-game playlist", self.start_playlist_pregame))
+        spotify_layout.addWidget(self.create_button("Start House of House (Pre-game playlist)", self.start_house_of_house))
         spotify_layout.addWidget(self.create_button("Start Half-Time playlist", self.start_playlist_halftime))
-        spotify_layout.addWidget(self.create_button("Start Playlist Winst", self.start_playlist_winst))
-        spotify_layout.addWidget(self.create_button("Start Playlist Gelijkspel (Database)", self.start_playlist_database))
+        spotify_layout.addWidget(self.create_button("Start Playlist Winst/Gelijkspel", self.start_playlist_winst))
         spotify_layout.addWidget(self.create_button("Start Playlist Verlies", self.start_playlist_verlies))
-        spotify_layout.addWidget(self.create_button("MUZIEK UIT BIJ SPIONKOP", self.dummy_button))
-        spotify_layout.addWidget(QLabel("Controls"))
-        spotify_layout.addWidget(self.create_button("Pause Spotify", self.pause_spotify))
-        spotify_layout.addWidget(self.create_button("Resume Spotify", self.play_spotify))
-        spotify_layout.addWidget(self.create_button("Next Spotify Song", self.spotify_next))
-        spotify_layout.addWidget(self.create_button("Previous Spotify Song", self.spotify_previous))
         spotify_layout.addWidget(QLabel(""))
-        spotify_layout.addWidget(self.create_button("Stop Countdown", self.stop_countdown))
-        spotify_layout.addWidget(self.create_button("Stop 10' mixtape", self.stop_pregame_mixtape))
-        spotify_layout.addWidget(self.create_button("Stop Pro League Hymne", self.stop_proleague_hymne))
+        spotify_layout.addWidget(self.create_button("Pauzeer muziek", self.pause_spotify))
+        spotify_layout.addWidget(self.create_button("Hervat muziek", self.play_spotify))
+        spotify_layout.addWidget(self.create_button("Next Song", self.spotify_next))
+        spotify_layout.addWidget(self.create_button("Previous Song", self.spotify_previous))
 
         loop_video_layout = QVBoxLayout()
         loop_video_layout.addWidget(QLabel("Other Software"))
         loop_video_layout.addWidget(self.create_button("Open Spotify", self.open_spotify_app))
         loop_video_layout.addWidget(self.create_button("Open LedSet", self.open_ledset_app))
-        loop_video_layout.addWidget(self.create_button("Render New Loop", self.dummy_button))
         loop_video_layout.addWidget(QLabel("Loop Video (3e scherm)"))
         loop_video_layout.addWidget(self.create_button("Toon Main", lambda: self.set_loop_video("Main.mp4")))
         loop_video_layout.addWidget(self.create_button("Toon Gameday", lambda: self.set_loop_video("Gameday.mp4")))
         loop_video_layout.addWidget(self.create_button("Reset boarding", lambda: self.reset_loop_video(os.path.join("Media", "default.jpg"))))
 
         main_layout.addLayout(scoreboard_layout, 1)
+        main_layout.addLayout(video_layout, 1)
         main_layout.addLayout(lineup_layout, 1)
         main_layout.addLayout(spotify_layout, 1)
         main_layout.addLayout(loop_video_layout, 1)
@@ -666,24 +661,12 @@ class ControlPanel(QWidget):
         try:
             subprocess.Popen(["spotify"])
         except FileNotFoundError:
-            QMessageBox.critical(self, "Fout", "Spotify kon niet worden gevonden vanuit de Microsoft Store.")
-
-        mogelijk_paden = [
-            r"C:\\Users\\Ridepulse\\AppData\\Roaming\\Spotify\\Spotify.exe",
-        ]
-        for pad in mogelijk_paden:
-            if os.path.exists(pad):
-                try:
-                    subprocess.Popen([pad])
-                    return
-                except Exception as e:
-                    QMessageBox.critical(self, "Error", f"Could not open Spotify in AppData:\n{e}")
-                    return
-        QMessageBox.critical(self, "Error", "Could not open Spotify.")
+            QMessageBox.critical(self, "Fout", "Spotify kon niet worden gevonden op dit systeem.")
 
     def open_ledset_app(self):
         mogelijk_paden = [
-            r"C:\\Program Files\\Linsn\\LedSet\\LedSet.exe",
+            r"C:\\Program Files\\LedSet\\LedSet.exe",
+            r"C:\\Program Files (x86)\\LedSet\\LedSet.exe"
         ]
         for pad in mogelijk_paden:
             if os.path.exists(pad):
@@ -696,12 +679,12 @@ class ControlPanel(QWidget):
         QMessageBox.critical(self, "Error", "LedSet.exe was not found.")
 
     def add_sponsor_files(self):
-        files, _ = QFileDialog.getOpenFileNames(self, "Choose sponsors to add", "",
+        files, _ = QFileDialog.getOpenFileNames(self, "Select sponsorfiles", "",
                                                 "Media Files (*.jpg *.jpeg *.png *.mp4 *.avi *.mov)")
         if not files:
             return
 
-        sponsor_folder = os.path.join(os.getcwd(), "Scorebord")
+        sponsor_folder = os.path.join(os.getcwd(), "Sponsors")
         if not os.path.exists(sponsor_folder):
             os.makedirs(sponsor_folder)
 
@@ -721,16 +704,16 @@ class ControlPanel(QWidget):
 
         QMessageBox.information(
             self,
-            "Sponsors added",
-            f"{copied} sponsorbestand{'en' if copied != 1 else ''} toegevoegd aan de map 'Scorebord'."
+            "Sponsors toegevoegd",
+            f"{copied} sponsorbestand{'en' if copied != 1 else ''} toegevoegd aan de map 'Sponsors'."
         )
 
     def remove_sponsor_files(self):
-        folder = os.path.join(os.getcwd(), "Scorebord")
-        archive_folder = os.path.join(os.getcwd(), "Scorebord_archive")
+        folder = os.path.join(os.getcwd(), "Sponsors")
+        archive_folder = os.path.join(os.getcwd(), "Sponsors_archive")
 
         if not os.path.exists(folder):
-            QMessageBox.information(self, "Could not find", "Could not find the folder 'Scorebord'.")
+            QMessageBox.information(self, "Could not find", "Could not find the folder 'Sponsors'.")
             return
 
         if not os.path.exists(archive_folder):
@@ -765,35 +748,115 @@ class ControlPanel(QWidget):
         self.start_sponsors_loop()
 
         QMessageBox.information(self, "Sponsors successfully removed",
-                                f"{len(selected_files)} sponsors are successfully removed and they are archived to 'Scorebord_archive'")
+                                f"{len(selected_files)} sponsors are successfully removed and they are archived to 'sponsors_archive'")
 
-    def dummy_button(self):
-        print("Dummy button hihi")
+    def add_top_video(self):
+        files, _ = QFileDialog.getOpenFileNames(self, "Kies videobestanden", "", "Video Files (*.mp4 *.avi *.mov)")
+        for f in files:
+            if f not in self.top_video_files:
+                self.top_video_files.append(f)
+                self.top_video_list.addItem(f)
 
-    def start_pregame_mixtape(self):
-        playback = sp.current_playback()
-        if playback and playback["is_playing"]:
-            sp.pause_playback(device_id=device_id)
+    def remove_top_video(self):
+        current_row = self.top_video_list.currentRow()
+        if current_row >= 0:
+            self.top_video_files.pop(current_row)
+            self.top_video_list.takeItem(current_row)
+
+    def play_next_top_video(self):
+        if not self.top_video_playing or not self.top_video_files:
+            return
+
+        if self.top_video_index >= len(self.top_video_files):
+            if self.loop_checkbox.isChecked():
+                self.top_video_index = 0
+            else:
+                self.top_video_playing = False
+                return
+
+        video_path = self.top_video_files[self.top_video_index]
+        if not os.path.exists(video_path):
+            self.top_video_index += 1
+            QTimer.singleShot(100, self.play_next_top_video)
+            return
+
+        # --- Bepaal doel-label en stack ---
+        if self.playlist_fullscreen:
+            self.display.stack.setCurrentIndex(1)
+            target_label = self.display.lineup_label
         else:
-            pass
-        self.pregame_mixtape.stop()
-        self.pregame_mixtape.play()
+            self.display.stack.setCurrentIndex(0)
+            target_label = self.display.sponsor_label
 
-    def stop_pregame_mixtape(self):
-        self.pregame_mixtape.stop()
+        target_label.clear()
+        target_label.show()
+        QApplication.processEvents()
 
-    def start_countdown(self):
-        self.pregame_mixtape.stop()
-        playback = sp.current_playback()
-        if playback and playback["is_playing"]:
-            sp.pause_playback(device_id=device_id)
+        # --- Zet media en output ---
+        media = self.vlc_instance.media_new(video_path)
+        self.top_video_player.set_media(media)
+        self.top_video_player.audio_set_mute(self.mute_button.isChecked())
+
+        if sys.platform.startswith("linux"):
+            self.top_video_player.set_xwindow(int(target_label.winId()))
         else:
-            pass
-        self.countdown.stop()
-        self.countdown.play()
+            self.top_video_player.set_hwnd(int(target_label.winId()))
 
-    def stop_countdown(self):
-        self.countdown.stop()
+        self.top_video_player.play()
+
+        # --- Einde video event ---
+        def handle_end(event):
+            if not self.top_video_playing:
+                return
+            self.top_video_index += 1
+            QTimer.singleShot(200, self.play_next_top_video)
+
+        # Zorg dat er geen dubbele event handlers zijn
+        event_manager = self.top_video_player.event_manager()
+        event_manager.event_detach(vlc.EventType.MediaPlayerEndReached)
+        event_manager.event_attach(vlc.EventType.MediaPlayerEndReached, handle_end)
+
+    def finish_top_video(self, player):
+        player.stop()
+        del player
+        self.top_video_index += 1
+        self.play_next_top_video()
+
+    def start_top_video_playlist(self):
+        if not self.top_video_files:
+            QMessageBox.information(self, "Geen video's", "De afspeellijst is leeg.")
+            return
+
+        self.top_video_index = 0
+        self.top_video_playing = True
+        self.play_next_top_video()
+
+    def stop_top_video_playlist(self):
+        self.top_video_playing = False
+        self.top_video_index = 0
+
+        if self.top_video_player:
+            self.top_video_player.stop()
+
+        self.display.stack.setCurrentIndex(0)
+        self.display.sponsor_label.clear()
+        self.display.sponsor_label.hide()
+        self.display.lineup_label.clear()
+        self.display.lineup_label.hide()
+
+    def load_playlists(self):
+        if os.path.exists(PLAYLIST_FILE):
+            with open(PLAYLIST_FILE, 'r') as f:
+                data = json.load(f)
+                self.top_video_files = data.get("top", [])
+        if hasattr(self, 'top_video_list'):
+            self.top_video_list.clear()
+            self.top_video_list.addItems(self.top_video_files)
+
+    def save_playlists(self):
+        data = {"top": self.top_video_files}
+        with open(PLAYLIST_FILE, 'w') as f:
+            json.dump(data, f)
 
     def spotify_next(self):
         sp.next_track(device_id=device_id)
@@ -830,8 +893,7 @@ class ControlPanel(QWidget):
         sp.shuffle(state=False, device_id=device_id)
         sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI)
 
-    def start_synrise(self, name):
-        self.pregame_mixtape.stop()
+    def start_house_of_house(self, name):
         PLAYLIST_URI = PREGAME_URL
         sp.shuffle(state=False, device_id=device_id)
         sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI, offset={"position": 4})
@@ -856,6 +918,11 @@ class ControlPanel(QWidget):
         self.display.close()
         self.close()
         QApplication.quit()
+
+    def toggle_mute(self):
+        is_muted = self.mute_button.isChecked()
+        self.media_player.audio_set_mute(is_muted)
+        self.mute_button.setText(f" {'Muted' if is_muted else 'Unmuted'}")
 
     def toggle_loop(self):
         self.loop_checkbox.setText("Loop AAN" if self.loop_checkbox.isChecked() else "Loop UIT")
@@ -976,8 +1043,128 @@ class ControlPanel(QWidget):
         except Exception:
             QMessageBox.critical(self, "Invalid Format", "Please enter MM:SS")
 
+    def add_video(self):
+        filename, _ = QFileDialog.getOpenFileName(self, "Add Video")
+        if filename:
+            self.top_video_playlist.append(filename)
+            self.top_list.addItem(filename)
+
+    def remove_video(self):
+        current = self.top_list.currentRow()
+        if current >= 0:
+            self.top_video_playlist.pop(current)
+            self.top_list.takeItem(current)
+
+    def play_top_playlist(self):
+        self.top_video_player.stop()
+
+        if not self.top_video_playlist:
+            print("No videos in playlist.")
+            return
+
+        self.current_playlist_index = 0
+        self.playlist_loop_active = True
+        self.play_next_video()
+
+    def play_next_video(self):
+        try:
+           if not self.playlist_loop_active:
+                return
+                self.current_playlist_index = (self.current_playlist_index + 1) % len(self.top_video_playlist)
+                video_path = self.top_video_playlist[self.current_playlist_index]
+                media = self.top_video_player.media_new(video_path)
+                self.top_video_vlc.set_media(media)
+                self.top_video_vlc.play()
+                self.top_video_vlc.audio_set_mute(self.mute_button.isChecked())
+
+        except Exception as e:
+            print(f"Error in play_next_video: {e}")
+
+        if not self.top_video_player or not self.display.top_video_label:
+            print("Video player or display label not initialized.")
+            return
+
+        if self.current_playlist_index >= len(self.top_video_playlist):
+            self.current_playlist_index = 0  # Loop back to start
+
+        video_path = self.top_video_playlist[self.current_playlist_index]
+
+        if not os.path.exists(video_path):
+            print(f"Video file not found: {video_path}")
+            self.current_playlist_index += 1
+            QTimer.singleShot(500, self.play_next_video)
+            return
+
+        media = self.vlc_instance.media_new(video_path)
+        self.top_video_player.set_media(media)
+        self.display.top_video_label.show()
+        QTest.qWait(50)
+        try:
+            if sys.platform.startswith('linux'):
+                self.top_video_player.set_xwindow(int(self.display.top_video_label.winId()))
+            else:
+                self.top_video_player.set_hwnd(int(self.display.top_video_label.winId()))
+        except Exception as e:
+            print(f"Failed to set video output window: {e}")
+            self.current_playlist_index += 1
+            QTimer.singleShot(1000, self.play_next_video)
+            return
+        self.top_video_player.audio_set_mute(self.mute_button.isChecked())
+        self.top_video_player.play()
+
+        def check_duration():
+            duration = self.top_video_player.get_length()
+            if duration > 0:
+                print(f"Duration: {duration}ms")
+                QTimer.singleShot(duration, self.play_next_video)
+                self.current_playlist_index += 1
+            else:
+                # Try again after a short wait
+                QTimer.singleShot(200, check_duration)
+
+        QTimer.singleShot(200, check_duration)
+
+    def play_video(self):
+        if self.top_video_index >= len(self.top_video_playlist):
+            self.top_video_index = 0  # Loop
+        media = self.vlc_instance.media_new(self.top_video_playlist[self.top_video_index])
+        self.top_video_player.set_media(media)
+        if sys.platform.startswith('linux'):
+            self.top_video_player.set_xwindow(int(self.display.sponsor_label.winId()))
+        else:
+            self.top_video_player.set_hwnd(int(self.display.sponsor_label.winId()))
+
+        # Use VLC event instead of polling
+        events = self.top_video_player.event_manager()
+        events.event_attach(vlc.EventType.MediaPlayerEndReached, self.on_video_end)
+
+        self.top_video_player.play()
+
+    def on_video_end(self, event):
+        self.top_video_index += 1
+        self.play_video()
+
+    def stop_top_playlist(self):
+        self.top_video_player.stop()
+
+    def load_playlists(self):
+        if os.path.exists(PLAYLIST_FILE):
+            with open(PLAYLIST_FILE, 'r') as f:
+                data = json.load(f)
+                self.top_video_playlist = data.get("top", [])
+
+        if hasattr(self, 'top_list'):
+            self.top_list.clear()
+            self.top_list.addItems(self.top_video_playlist)
+
+    def save_playlists(self):
+        data = {"top": self.top_video_playlist}
+        with open(PLAYLIST_FILE, 'w') as f:
+            json.dump(data, f)
+
     def start_sponsors_loop(self):
-        folder_path = "Scorebord"
+        self.top_video_player.stop()
+        folder_path = "Sponsors"
         if not os.path.isdir(folder_path):
             return
         self.sponsor_files = [os.path.join(folder_path, f) for f in sorted(os.listdir(folder_path)) if f.lower().endswith((".jpg", ".jpeg", ".png", ".mp4", ".avi", ".mov"))]
@@ -995,8 +1182,14 @@ class ControlPanel(QWidget):
         ext = os.path.splitext(file_path)[1].lower()
 
         abs_path = os.path.abspath(file_path)
+        print(f"Volgende sponsorbestand: {abs_path}")
 
         if ext in [".png", ".jpg", ".jpeg"]:
+            if not hasattr(self, "qmedia_player"):
+                print("⚠️ qmedia_player bestaat nog niet!")
+                return
+
+            self.qmedia_player.stop()
             self.display.video_widget.hide()
             self.display.sponsor_label.show()
             pixmap = QPixmap(abs_path).scaled(
@@ -1006,9 +1199,10 @@ class ControlPanel(QWidget):
                 Qt.SmoothTransformation
             )
             self.display.sponsor_label.setPixmap(pixmap)
-            self.image_timer.start(sponsor_duration)
+            self.image_timer.start(5000)
 
         elif ext in [".mp4", ".mov", ".avi"]:
+            print("Probeer video af te spelen...")
             self.display.sponsor_label.hide()
             self.display.video_widget.show()
             self.qmedia_player.setMedia(QMediaContent(QUrl.fromLocalFile(abs_path)))
@@ -1039,15 +1233,11 @@ class ControlPanel(QWidget):
             return
 
         self.lineup_index = 0
-        self.display.lineup_label.clear()
+        self.display.stack.setCurrentIndex(1)  # show lineup
         self.display.lineup_label.show()
-        self.display.stack.setCurrentIndex(1)  # show lineup layer
-
-        if sys.platform.startswith("linux"):
-            self.lineup_video_player.set_xwindow(int(self.display.lineup_label.winId()))
-        else:
-            self.lineup_video_player.set_hwnd(int(self.display.lineup_label.winId()))
-
+        self.lineup_event_attached = False  # <- initialize flag
+        self.lineup_vlc_instance = vlc.Instance()
+        self.lineup_video_player = self.lineup_vlc_instance.media_player_new()
         self.play_next_lineup_video()
 
     def play_next_lineup_video(self):
@@ -1067,8 +1257,13 @@ class ControlPanel(QWidget):
         media = self.lineup_vlc_instance.media_new(video_path)
         self.lineup_video_player.set_media(media)
         self.lineup_video_player.audio_set_mute(self.mute_button.isChecked())
-        self.lineup_video_player.play()
 
+        if sys.platform.startswith("linux"):
+            self.lineup_video_player.set_xwindow(int(self.display.lineup_label.winId()))
+        else:
+            self.lineup_video_player.set_hwnd(int(self.display.lineup_label.winId()))
+
+        self.lineup_video_player.play()
         def check_duration_and_queue_next():
             duration = self.lineup_video_player.get_length()
             if duration > 0:
@@ -1079,19 +1274,9 @@ class ControlPanel(QWidget):
 
         QTimer.singleShot(10, check_duration_and_queue_next)
 
-    def play_proleague_hymne(self):
-        playback = sp.current_playback()
-        if playback and playback["is_playing"]:
-            sp.pause_playback(device_id=device_id)
-        else:
-            pass
-        self.countdown.stop()
-        self.pregame_mixtape.stop()
-        self.proleague_sound.stop()
+    def play_proleague_sound(self):
+        self.proleague_sound.stop() #start vanaf het begin
         self.proleague_sound.play()
-
-    def stop_proleague_hymne(self):
-        self.proleague_sound.stop()
 
     def play_goal_video(self):
         filename = self.goal_input.text().strip()
@@ -1099,7 +1284,20 @@ class ControlPanel(QWidget):
             QMessageBox.warning(self, "No Input", "Please add a player number in the input field.")
             return
 
-        video_path = os.path.join(os.getcwd(), video_path_goal, filename + ".mp4")
+        video_path = os.path.join(os.getcwd(), video_path_lineup, filename + ".mp4")
+        if not os.path.exists(video_path):
+            QMessageBox.warning(self, "File not found", f"Could not find: {video_path}")
+            return
+
+        self.play_single_video(video_path)
+
+    def play_wissel_video(self):
+        filename = self.wissel_input.text().strip()
+        if not filename:
+            QMessageBox.warning(self, "No Input", "Please add a player number in the input field.")
+            return
+
+        video_path = os.path.join(os.getcwd(), video_path_lineup, filename + ".mp4")
         if not os.path.exists(video_path):
             QMessageBox.warning(self, "File not found", f"Could not find: {video_path}")
             return
@@ -1107,29 +1305,31 @@ class ControlPanel(QWidget):
         self.play_single_video(video_path)
 
     def play_single_video(self, video_path):
+        self.display.stack.setCurrentIndex(1)
         self.display.lineup_label.show()
 
+        # Zet een tijdelijke VLC speler op
+        player = vlc.Instance().media_player_new()
+        media = vlc.Instance().media_new(video_path)
+        player.set_media(media)
+        player.audio_set_mute(self.mute_button.isChecked())
+
         if sys.platform.startswith("linux"):
-            self.lineup_video_player.set_xwindow(int(self.display.lineup_label.winId()))
+            player.set_xwindow(int(self.display.lineup_label.winId()))
         else:
-            self.lineup_video_player.set_hwnd(int(self.display.lineup_label.winId()))
+            player.set_hwnd(int(self.display.lineup_label.winId()))
 
-        media = self.lineup_vlc_instance.media_new(video_path)
-        self.lineup_video_player.set_media(media)
-        self.lineup_video_player.audio_set_mute(self.mute_button.isChecked())
-        self.lineup_video_player.play()
-        QTimer.singleShot(100, lambda: self.display.stack.setCurrentIndex(1))
-
+        player.play()
 
         def check_end():
-            if not self.lineup_video_player.is_playing():
-                self.display.stack.setCurrentIndex(0)
-                self.lineup_video_player.stop()
+            if not player.is_playing():
+                player.stop()
                 self.display.lineup_label.hide()
+                self.display.stack.setCurrentIndex(0)
             else:
                 QTimer.singleShot(300, check_end)
 
-        QTimer.singleShot(500, check_end)
+        QTimer.singleShot(1000, check_end)
 
 
 if __name__ == '__main__':
