@@ -19,5 +19,7 @@ The correct screen can be edited in the config file.
   <br /> ❌ Functie creeren om main.mp4 en gameday.mp4 te renderen vanuit deze software met rendering code. (Mss gewoon verschillende VLC vensters die een single loop afspelen?)
   <br /> ❌ Makkelijkere manier vinden om presets toe te voegen. (Mss via config file?)
   <br /> ❌ Spotify openen bij opstart => crash voorkomeno!
+  <br /> ❗❌ TIME REMAINING nog tonen!
+
 
 # This is still a work in process...
