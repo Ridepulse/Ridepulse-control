@@ -355,7 +355,7 @@ class ControlPanel(QWidget):
     def __init__(self, display_window):
         super().__init__()
         self.display = display_window
-        self.is_fullscreen = False
+        self.is_fullscreen = True
         self.vlc_instance = vlc.Instance()
         self.lineup_vlc_instance = vlc.Instance()
         self.lineup_video_player = self.lineup_vlc_instance.media_player_new()
@@ -598,6 +598,7 @@ class ControlPanel(QWidget):
         scoreboard_layout.addWidget(self.create_button("Toggle Fullscreen", self.toggle_fullscreen))
         scoreboard_layout.addWidget(self.create_button("Exit", self.exit_application))
 
+
         lineup_layout = QVBoxLayout()
         lineup_layout.setSpacing(10)
         lineup_layout.addWidget(QLabel("Line-up Players"))
@@ -617,12 +618,7 @@ class ControlPanel(QWidget):
         spotify_layout.addWidget(self.create_button("T-60' - Start Database playlist", self.start_playlist_database))
         spotify_layout.addWidget(self.create_button("T-30' - Start Pre-game playlist (tot I Gotta Feeling)", self.start_playlist_pregame))
         spotify_layout.addWidget(self.create_button("T-20' - OMROEP: Opstelling tegenstander + extra", self.dummy_button))
-        spotify_layout.addWidget(
-            self.create_button(
-                "T-18' - Speel Baila de Gasolina (ATCS)",
-                lambda: self.sp.start_playback(uris=["spotify:track:https://open.spotify.com/track/43TPlT0l0HXLtKUOUoY3gY"])
-            )
-        )
+        spotify_layout.addWidget(self.create_button("T-18' - Start Baila de Gasolina (ATCS)", self.start_baila))
         spotify_layout.addWidget(self.create_button("T-15' - Start 10' mixtape", self.start_pregame_mixtape))
         spotify_layout.addWidget(self.create_button("T-05' - OMROEP: Opstelling Sporting + extra", self.dummy_button))
         spotify_layout.addWidget(self.create_button("Start Synrise (Pre-game playlist)", self.start_synrise))
@@ -640,12 +636,14 @@ class ControlPanel(QWidget):
         spotify_layout.addWidget(self.create_button("Resume Spotify", self.play_spotify))
         spotify_layout.addWidget(self.create_button("Next Spotify Song", self.spotify_next))
         spotify_layout.addWidget(self.create_button("Previous Spotify Song", self.spotify_previous))
-        spotify_layout.addWidget(QLabel(""))
-        spotify_layout.addWidget(self.create_button("Stop Countdown", self.stop_countdown))
-        spotify_layout.addWidget(self.create_button("Stop 10' mixtape", self.stop_pregame_mixtape))
-        spotify_layout.addWidget(self.create_button("Stop Pro League Hymne", self.stop_proleague_hymne))
+
 
         loop_video_layout = QVBoxLayout()
+        loop_video_layout.setSpacing(10)
+        loop_video_layout.addWidget(QLabel("Pre Game STOPS"))
+        loop_video_layout.addWidget(self.create_button("Stop Countdown", self.stop_countdown))
+        loop_video_layout.addWidget(self.create_button("Stop 10' mixtape", self.stop_pregame_mixtape))
+        loop_video_layout.addWidget(self.create_button("Stop Pro League Hymne", self.stop_proleague_hymne))
         loop_video_layout.addWidget(QLabel("Other Software"))
         loop_video_layout.addWidget(self.create_button("Open Spotify", self.open_spotify_app))
         loop_video_layout.addWidget(self.create_button("Open LedSet", self.open_ledset_app))
@@ -815,33 +813,38 @@ class ControlPanel(QWidget):
         else:
             sp.start_playback(device_id=device_id)
 
-    def start_playlist_database(self, name):
+    def start_baila(self, name):
+        PLAYLIST_URI = "https://open.spotify.com/album/2ojXXfh1QKhimrvz4wt97G"
+        sp.shuffle(state=True, device_id=device_id)
+        sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI)
+
+    def start_playlist_database(self):
         PLAYLIST_URI = DATABASE_URL
         sp.shuffle(state=True, device_id=device_id)
         sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI)
 
-    def start_playlist_halftime(self, name):
+    def start_playlist_halftime(self):
         PLAYLIST_URI = HALFTIME_URL
         sp.shuffle(state=False, device_id=device_id)
         sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI)
 
-    def start_playlist_pregame(self, name):
+    def start_playlist_pregame(self):
         PLAYLIST_URI = PREGAME_URL
         sp.shuffle(state=False, device_id=device_id)
         sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI)
 
-    def start_synrise(self, name):
+    def start_synrise(self):
         self.pregame_mixtape.stop()
         PLAYLIST_URI = PREGAME_URL
         sp.shuffle(state=False, device_id=device_id)
         sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI, offset={"position": 4})
 
-    def start_playlist_winst(self, name):
+    def start_playlist_winst(self):
         PLAYLIST_URI = WIN_URL
         sp.shuffle(state=False, device_id=device_id)
         sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI)
 
-    def start_playlist_verlies(self, name):
+    def start_playlist_verlies(self):
         PLAYLIST_URI = LOSE_URL
         sp.shuffle(state=False, device_id=device_id)
         sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI)
