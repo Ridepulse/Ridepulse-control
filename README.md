@@ -22,6 +22,7 @@ The correct screen can be edited in the config file.
   <br /> ❗❌ TIME REMAINING nog tonen!
   <br /> RESET NAAR STACK VAN SCOREBORD IPV LINEUP OF GOAL KNOP!! + BUG ALS GREG AFGELOPEN IS!
   <br /> Extra tijd visuals??
+  <br /> 15 minuten timer voor half time?
 
 
 # This is still a work in process...
