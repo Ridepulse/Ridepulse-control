@@ -405,11 +405,7 @@ class ControlPanel(QWidget):
         self.video_timer.setSingleShot(True)
         self.video_timer.timeout.connect(self.show_next_sponsor)
 
-        self.mute_button = QPushButton("Muted")
-        self.mute_button.setCheckable(True)
-        self.mute_button.setChecked(True)  # Default is muted
         self.playlist_fullscreen = False
-
         self.remaining_time = QTime(0, 0, 0)
 
         self.media_timer = QTimer()
@@ -713,7 +709,6 @@ class ControlPanel(QWidget):
         scoreboard_layout.addWidget(QLabel(""))
         scoreboard_layout.addWidget(self.create_button("Toggle Fullscreen", self.toggle_fullscreen))
         scoreboard_layout.addWidget(self.create_button("Exit", self.exit_application))
-
 
         lineup_layout = QVBoxLayout()
         lineup_layout.setSpacing(10)
@@ -1156,6 +1151,7 @@ class ControlPanel(QWidget):
             QMessageBox.critical(self, "Invalid Format", "Please enter MM:SS")
 
     def start_sponsors_loop(self):
+
         try:
             self.image_timer.stop()
         except Exception:
@@ -1246,7 +1242,7 @@ class ControlPanel(QWidget):
             pass
 
         self.sponsor_player.set_media(media)
-        self.sponsor_player.audio_set_mute(self.mute_button.isChecked())
+        self.sponsor_player.audio_set_mute(True)
         self._sp_last_ms = -1
         self._sp_frozen_for = 0
         self.sponsor_player.play()
@@ -1352,7 +1348,7 @@ class ControlPanel(QWidget):
 
         media = self.lineup_vlc_instance.media_new(video_path)
         self.lineup_video_player.set_media(media)
-        self.lineup_video_player.audio_set_mute(self.mute_button.isChecked())
+        self.lineup_video_player.audio_set_mute(True)
         self.lineup_video_player.play()
 
         def check_duration_and_queue_next():
