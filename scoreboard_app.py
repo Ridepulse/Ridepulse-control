@@ -1392,7 +1392,7 @@ class ControlPanel(QWidget):
 
         media = self.lineup_vlc_instance.media_new(video_path)
         self.lineup_video_player.set_media(media)
-        self.lineup_video_player.audio_set_mute(self.mute_button.isChecked())
+        self.lineup_video_player.audio_set_mute(True)
         self.lineup_video_player.play()
         QTimer.singleShot(100, lambda: self.display.stack.setCurrentIndex(1))
 
