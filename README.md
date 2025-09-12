@@ -16,6 +16,7 @@ The correct screen can be edited in the config file.
   <br /> ✅ Opening other necessary software should work, ledset needs to open with admin rights.
   <br /> ✅ Fix line up => werkt normaal wel nu, mits een kleine flits bij het afspelen van een goal visual.
   <br /> ✅ Import en export mogelijk van sponsoren voor het scorebord mogelijk gemaakt vanuit controlpanel, bij het verwijderen worden sponsoren gearchiveerd naar Scorebord_archive.
+  <br /> ✅ Startuur van de match kan ingegeven worden bovenaan. Dit update de verschillende timings van audio.
   <br /> Match bediening met knoppen op toetsenbord?
 
 # Bugs:
