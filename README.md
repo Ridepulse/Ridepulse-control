@@ -29,7 +29,8 @@ The correct screen can be edited in the config file.
   <br /> ✅ 15 minuten timer voor half time => implemented, maar lelijk!
   <br /> ❌ (Mss gewoon verschillende VLC vensters die een single loop afspelen voor led boarding?)
   <br /> ❌ Flash bij switchen tussen video en afbeelding en bij 2 videos na elkaar (sponsor)
-  <br /> ✅ Als lineup gespeeld heeft dan wordt greg niet getoond maar de laatse video van de lineup. => resolved door een nieuwe stack te gebruiken voor deze visual only.
+  <br /> ❌ Clear all fields bij lineup button.
+  <br /> ❌ Als lineup gespeeld heeft dan wordt greg niet getoond maar de laatse video van de lineup. => resolved door een nieuwe stack te gebruiken voor deze visual only. HEEFT NIET DE JUIST GROOTTE!!!!
   
 # This is still a work in process...
 
