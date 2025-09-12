@@ -100,6 +100,7 @@ LOSE_URL = config["lose_url"]
 
 #settings sponsors
 sponsor_duration = config["sponsor_duration"]
+show_greg = config["show_greg"]
 
 class ScoreboardDisplay(QWidget):
     def __init__(self):
@@ -303,7 +304,7 @@ class ScoreboardDisplay(QWidget):
 
         lineup_scoreboard = QWidget()
         lineup_scoreboard.setFixedSize(480, 60)
-        lineup_scoreboard.setStyleSheet("background-color: black;")  # match your main layout
+        lineup_scoreboard.setStyleSheet("background-color: black;")
         lineup_scoreboard.setContentsMargins(0,0,0,0)
         score_layout = QHBoxLayout()
         score_layout.setContentsMargins(0, 0, 0, 0)
@@ -346,6 +347,19 @@ class ScoreboardDisplay(QWidget):
         self.setLayout(self.main_layout)
         self.stack.addWidget(self.main_container)  # index 0
         self.stack.addWidget(self.lineup_page)  # index 1
+
+        self.greg_label = QLabel()
+        self.greg_label.setFixedSize(480, 300)
+        self.greg_label.setStyleSheet("background-color: black;")
+        self.greg_label.setAlignment(Qt.AlignCenter)
+
+        self.greg_page = QWidget()
+        greg_layout = QVBoxLayout()
+        greg_layout.setContentsMargins(0, 0, 0, 0)
+        greg_layout.addWidget(self.greg_label)
+        self.greg_page.setLayout(greg_layout)
+
+        self.stack.addWidget(self.greg_page)  # index 2
 
 class CountdownDialog(QDialog):
     def __init__(self, seconds, parent=None):
@@ -395,7 +409,6 @@ class ControlPanel(QWidget):
         self.top_video_playlist = []
 
         self.goal_input = QLineEdit()
-        self.wissel_input = QLineEdit()
 
         self.image_timer = QTimer()
         self.image_timer.setSingleShot(True)
@@ -411,7 +424,7 @@ class ControlPanel(QWidget):
         self.media_timer = QTimer()
         self.media_timer.timeout.connect(self.update_remaining_time)
         self.time_remaining_label = QLabel("Time remaining: --:--")
-        self.time_remaining_label.setStyleSheet("color: orange; font-size: 16px;")
+        self.time_remaining_label.setStyleSheet("color: red; font-size: 20px; padding: 4px;")
 
         self.goal_sound = QMediaPlayer()
         self.goal_sound.setMedia(QMediaContent(QUrl.fromLocalFile(os.path.abspath(GOAL_SOUND))))
@@ -506,14 +519,10 @@ class ControlPanel(QWidget):
             pos = playback["progress_ms"] // 1000
             remaining = max(0, dur - pos)
             m, s = divmod(remaining, 60)
-
-            # Update het label
             self.time_remaining_label.setText(f"Time remaining: {m:02}:{s:02}")
 
-            # Check of er een nieuwe track gestart is
             if self.current_spotify_track_id != track_id:
                 self.current_spotify_track_id = track_id
-                # Bij trackwissel meteen label updaten met de nieuwe lengte
                 dur = playback["item"]["duration_ms"] // 1000
                 remaining = max(0, dur - pos)
                 m, s = divmod(remaining, 60)
@@ -678,6 +687,7 @@ class ControlPanel(QWidget):
 
         name1_layout, self.team1_name = labeled_input("Team 1", "SPORTING")
         scoreboard_layout.addLayout(name1_layout)
+        self.team1_name.returnPressed.connect(self.update_scoreboard)
 
         scoreboard_layout.addWidget(
             self.create_button("Goal Home", lambda: self.add_sporting_goal(self.display.sporting_score)))
@@ -686,14 +696,15 @@ class ControlPanel(QWidget):
 
         name2_layout, self.team2_name = labeled_input("Team 2", "")
         scoreboard_layout.addLayout(name2_layout)
+        self.team2_name.returnPressed.connect(self.update_scoreboard)
 
         scoreboard_layout.addWidget(
             self.create_button("Goal Visitors", lambda: self.add_visitor_goal(self.display.visitor_score)))
         scoreboard_layout.addWidget(
             self.create_button("-1 score", lambda: self.lower_goal(self.display.visitor_score)))
-        scoreboard_layout.addWidget(self.create_button("Update Scoreboard", self.update_scoreboard))
 
         timer_layout, self.timer_input = labeled_input("Timer (MM:SS)", "00:00")
+        self.timer_input.returnPressed.connect(self.update_timer_value)
         scoreboard_layout.addLayout(timer_layout)
 
         self.toggle_timer_btn = QPushButton("Start Match")
@@ -712,30 +723,74 @@ class ControlPanel(QWidget):
 
         lineup_layout = QVBoxLayout()
         lineup_layout.setSpacing(10)
+
         lineup_layout.addWidget(QLabel("Line-up Players"))
         for i in range(13):
             line_input = QLineEdit()
             self.lineup_inputs.append(line_input)
             lineup_layout.addWidget(line_input)
+        for i, line_input in enumerate(self.lineup_inputs):
+            if i < len(self.lineup_inputs) - 1:
+                line_input.returnPressed.connect(self.lineup_inputs[i + 1].setFocus)
+            else:
+                line_input.returnPressed.connect(self.start_lineup)  #laatste = start
 
         lineup_layout.addWidget(self.create_button("Start Line-up Sequence", self.start_lineup))
         lineup_layout.addWidget(QLabel("Goal Visual"))
         lineup_layout.addWidget(self.goal_input)
-        lineup_layout.addWidget(self.create_button("Play Goal Visual", self.play_goal_video))
+        self.goal_input.returnPressed.connect(self.play_goal_video)
 
         spotify_layout = QVBoxLayout()
         spotify_layout.setSpacing(10)
+        timeupdate_layout = QVBoxLayout()
+        timeupdate_layout.setSpacing(10)
+        timeupdate_layout.addWidget(QLabel("Starting Time Match"))
+        self.match_time_input = QLineEdit("20:00")
+        self.match_time_input.returnPressed.connect(self.update_match_time)
+        timeupdate_layout.addWidget(self.match_time_input)
+        spotify_layout.addLayout(timeupdate_layout)
         spotify_layout.addWidget(QLabel("Audio"))
-        spotify_layout.addWidget(self.create_button("T-60' - Start Database Playlist", self.start_playlist_database))
-        spotify_layout.addWidget(self.create_button("T-30' - Start Pre-game Playlist (tot I Gotta Feeling)", self.start_playlist_pregame))
-        spotify_layout.addWidget(self.create_button("T-20' - OMROEP: Opstelling tegenstander", self.dummy_button))
-        spotify_layout.addWidget(self.create_button("T-18' - Start Baila de Gasolina (ATCS)", self.start_baila))
-        spotify_layout.addWidget(self.create_button("T-15' - Start 10' Mixtape", self.start_pregame_mixtape))
-        spotify_layout.addWidget(self.create_button("T-07' - OMROEP: Opstelling Sporting", self.dummy_button))
+        btn = self.create_button("T-60' - Start Database Playlist", self.start_playlist_database)
+        btn._offset = 60
+        btn._desc = "Start Database Playlist"
+        spotify_layout.addWidget(btn)
+
+        btn = self.create_button("T-30' - Start Pre-game Playlist (tot I Gotta Feeling)", self.start_playlist_pregame)
+        btn._offset = 30
+        btn._desc = "Start Pre-game Playlist (tot I Gotta Feeling)"
+        spotify_layout.addWidget(btn)
+
+        btn = self.create_button("T-20' - OMROEP: Opstelling tegenstander", self.dummy_button)
+        btn._offset = 20
+        btn._desc = "OMROEP: Opstelling tegenstander"
+        spotify_layout.addWidget(btn)
+
+        btn = self.create_button("T-18' - Start Baila de Gasolina (ATCS)", self.start_baila)
+        btn._offset = 18
+        btn._desc = "Start Baila de Gasolina (ATCS)"
+        spotify_layout.addWidget(btn)
+
+        btn = self.create_button("T-15' - Start 10' Mixtape", self.start_pregame_mixtape)
+        btn._offset = 15
+        btn._desc = "Start 10' Mixtape"
+        spotify_layout.addWidget(btn)
+
+        btn = self.create_button("T-07' - OMROEP: Opstelling Sporting", self.dummy_button)
+        btn._offset = 7
+        btn._desc = "OMROEP: Opstelling Sporting"
+        spotify_layout.addWidget(btn)
+
         spotify_layout.addWidget(self.create_button("Indien Nodig - Start Synrise (07:35)", self.start_synrise))
         spotify_layout.addWidget(QLabel(""))
-        spotify_layout.addWidget(self.create_button("T-5' - Start Countdown (na signaal steward)", self.start_countdown))
-        spotify_layout.addWidget(self.create_button("T-2' - Play Pro League Hymne", self.play_proleague_hymne))
+        btn = self.create_button("T-5' - Start Countdown (na signaal steward)", self.start_countdown)
+        btn._offset = 5
+        btn._desc = "Start Countdown (na signaal steward)"
+        spotify_layout.addWidget(btn)
+
+        btn = self.create_button("T-2' - Play Pro League Hymne", self.play_proleague_hymne)
+        btn._offset = 2
+        btn._desc = "Play Pro League Hymne"
+        spotify_layout.addWidget(btn)
         spotify_layout.addWidget(QLabel(""))
         spotify_layout.addWidget(self.create_button("Start Half-Time playlist", self.start_playlist_halftime))
         spotify_layout.addWidget(self.create_button("Start Playlist Winst", self.start_playlist_winst))
@@ -777,6 +832,29 @@ class ControlPanel(QWidget):
             subprocess.Popen([sys.executable, script_path])
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Kon rendering.py niet starten:\n{e}")
+
+    def open_match_time_dialog(self):
+        dlg = MatchTimeDialog(self.match_time_input.text(), self)
+        if dlg.exec_() == QDialog.Accepted:
+            self.match_time_input.setText(dlg.get_time())
+            self.update_match_time()
+
+    def update_match_time(self):
+        text = self.match_time_input.text().strip()
+        try:
+            start_time = QTime.fromString(text, "HH:mm")
+            if not start_time.isValid():
+                raise ValueError
+
+            for btn in self.findChildren(QPushButton):
+                if hasattr(btn, "_offset") and hasattr(btn, "_desc"):
+                    offset = btn._offset
+                    new_time = start_time.addSecs(-offset * 60)
+                    btn.setText(new_time.toString("HH:mm") + " - " + btn._desc)
+
+        except Exception:
+            QMessageBox.critical(self, "Invalid Format", "Please enter HH:MM")
+
 
     def play_with_timer(self, player):
         player.stop()
@@ -1080,15 +1158,15 @@ class ControlPanel(QWidget):
     def toggle_timer(self):
         if self.timer_running:
             self.timer.stop()
-            self.toggle_timer_btn.setText("Start Timer")
+            self.toggle_timer_btn.setText("Start Match")
         else:
             self.timer.start(1000)
-            self.toggle_timer_btn.setText("Stop Timer")
+            self.toggle_timer_btn.setText("Stop Match")
         self.timer_running = not self.timer_running
 
     def reset_timer_eerstehelft(self):
         self.timer.stop()
-        self.toggle_timer_btn.setText("Start Timer")
+        self.toggle_timer_btn.setText("Start Match")
         self.timer_running = not self.timer_running
         self.elapsed_seconds = 0
         self.display.timer_label.setText("00:00")
@@ -1097,7 +1175,7 @@ class ControlPanel(QWidget):
 
     def reset_timer_tweedehelft(self):
         self.timer.stop()
-        self.toggle_timer_btn.setText("Start Timer")
+        self.toggle_timer_btn.setText("Start Match")
         self.timer_running = not self.timer_running
         self.elapsed_seconds = 45 * 60
         self.display.timer_label.setText("45:00")
@@ -1107,7 +1185,7 @@ class ControlPanel(QWidget):
     def update_timer(self):
         self.elapsed_seconds += 1
         minutes, seconds = divmod(self.elapsed_seconds, 60)
-        if self.elapsed_seconds == 240:
+        if self.elapsed_seconds == 240 and show_greg:
             self.show_greg_visual()
 
         self.display.timer_label.setText(f"{minutes:02}:{seconds:02}")
@@ -1120,14 +1198,19 @@ class ControlPanel(QWidget):
             QMessageBox.warning(self, "File not found", f"Could not find: {image_path}")
             return
 
-        self.display.stack.setCurrentIndex(1)
-        self.display.lineup_label.setPixmap(QPixmap(image_path).scaled(
-            self.display.lineup_label.size(),
+        self.display.greg_label.setPixmap(QPixmap(image_path).scaled(
+            self.display.greg_label.size(),
             Qt.IgnoreAspectRatio,
             Qt.SmoothTransformation
         ))
-        self.display.lineup_label.show()
-        QTimer.singleShot(60000, self.hide_lineup_visual)
+
+        self.display.stack.setCurrentIndex(2)
+        QTimer.singleShot(60000, self.hide_greg_visual)
+
+    def hide_greg_visual(self):
+        self.display.greg_label.clear()
+        self.display.stack.setCurrentIndex(0)
+
 
     def hide_lineup_visual(self):
         self.display.lineup_label.clear()
@@ -1136,7 +1219,7 @@ class ControlPanel(QWidget):
 
     def update_timer_value(self):
         self.timer.stop()
-        self.toggle_timer_btn.setText("Start Timer")
+        self.toggle_timer_btn.setText("Start Match")
         if self.timer_running == True:
             self.timer_running = not self.timer_running
 
@@ -1323,13 +1406,11 @@ class ControlPanel(QWidget):
         self.lineup_index = 0
         self.display.lineup_label.clear()
         self.display.lineup_label.show()
-        self.display.stack.setCurrentIndex(1)
 
         if sys.platform.startswith("linux"):
             self.lineup_video_player.set_xwindow(int(self.display.lineup_label.winId()))
         else:
             self.lineup_video_player.set_hwnd(int(self.display.lineup_label.winId()))
-
         self.play_next_lineup_video()
 
     def play_next_lineup_video(self):
@@ -1350,6 +1431,7 @@ class ControlPanel(QWidget):
         self.lineup_video_player.set_media(media)
         self.lineup_video_player.audio_set_mute(True)
         self.lineup_video_player.play()
+        self.display.stack.setCurrentIndex(1)
 
         def check_duration_and_queue_next():
             duration = self.lineup_video_player.get_length()
@@ -1412,6 +1494,7 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     display = ScoreboardDisplay()
     panel = ControlPanel(display)
+    panel.update_match_time()
     display.show()
     panel.show()
     sys.exit(app.exec_())
