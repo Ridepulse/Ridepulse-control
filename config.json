@@ -33,7 +33,8 @@
   "win_url": "https://open.spotify.com/playlist/0McXB0TUQ4wv7rGdQuDJhZ?si=34a0b8b962704a53",
   "lose_url": "https://open.spotify.com/playlist/0NLX1L4Zo2SPx5lNHF6Ywy?si=82993e6aa8f04b10",
 
-  "sponsor_duration": 8000
+  "sponsor_duration": 8000,
+  "show_greg": false
 
 
 
