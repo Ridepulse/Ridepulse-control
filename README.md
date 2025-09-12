@@ -25,6 +25,6 @@ The correct screen can be edited in the config file.
   <br /> ❌ (Mss gewoon verschillende VLC vensters die een single loop afspelen voor led boarding?)
   <br /> ❌ Flash bij switchen tussen video en afbeelding en bij 2 videos na elkaar (sponsor)
 ERROR GREG!!!! dan beide schermen omwisselen. 
-
+  <br /> In config file een show_greg true of false zetten
 # This is still a work in process...
 
