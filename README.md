@@ -9,7 +9,8 @@ The correct screen can be edited in the config file.
 
 # Important notes:
  ❗ Main.mp4 and Gameday.mp4 are needed in the main folder for the boarding to work (working on a way to import them).
- 
+ ❗ DMG needs to be manually put in the folder 'Scorebord' because the file size is too large for GitHub.
+  
 # Functions
  ✅ config.json includes settings for the displays, Spotify playlists, duration of scorebord sponsors, if the greg visual should be played in min 4 and the layout of the scoreboards (font, size, etc).
   <br /> ✅ Proper error handling is mostly implemented with warning boxes.
@@ -17,7 +18,7 @@ The correct screen can be edited in the config file.
   <br /> ✅ Fix line up => werkt normaal wel nu, mits een kleine flits bij het afspelen van een goal visual.
   <br /> ✅ Import en export mogelijk van sponsoren voor het scorebord mogelijk gemaakt vanuit controlpanel, bij het verwijderen worden sponsoren gearchiveerd naar Scorebord_archive.
   <br /> ✅ Startuur van de match kan ingegeven worden bovenaan. Dit update de verschillende timings van audio.
-  <br /> Match bediening met knoppen op toetsenbord?
+  <br /> ❌ Match bediening met knoppen op toetsenbord? WIP
 
 # Bugs:
 ✅ LED Boarding feed sluit niet goed af. => resolved.
@@ -30,7 +31,7 @@ The correct screen can be edited in the config file.
   <br /> ❌ (Mss gewoon verschillende VLC vensters die een single loop afspelen voor led boarding?)
   <br /> ❌ Flash bij switchen tussen video en afbeelding en bij 2 videos na elkaar (sponsor)
   <br /> ❌ Clear all fields bij lineup button.
-  <br /> ❌ Als lineup gespeeld heeft dan wordt greg niet getoond maar de laatse video van de lineup. => resolved door een nieuwe stack te gebruiken voor deze visual only. HEEFT NIET DE JUIST GROOTTE!!!!
+  <br /> ✅ Als lineup gespeeld heeft dan wordt greg niet getoond maar de laatse video van de lineup. => resolved door een nieuwe stack te gebruiken voor deze visual only. HEEFT NIET DE JUIST GROOTTE!!!!
   
 # This is still a work in process...
 
