@@ -74,7 +74,7 @@ def process_media_files(media_files, output_video, layout, target_fps, total_wid
                 for _ in range(frame_multiplier):
                     out.write(canvas)
             cap.release()
-        elif media_file.lower().endswith(('.jpg', '.png', '.jpeg')):
+        elif media_file.lower().endswith(('.jpg', '.png', '.jpeg', '.webp')):
             image = cv2.imread(media_file)
             if image is None:
                 print(f"Error: Unable to open image file {media_file}.")
