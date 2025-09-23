@@ -19,6 +19,8 @@ The correct screen can be edited in the config file.
   <br /> ✅ Import en export mogelijk van sponsoren voor het scorebord mogelijk gemaakt vanuit controlpanel, bij het verwijderen worden sponsoren gearchiveerd naar Scorebord_archive.
   <br /> ✅ Startuur van de match kan ingegeven worden bovenaan. Dit update de verschillende timings van audio.
   <br /> ❌ Match bediening met knoppen op toetsenbord? WIP
+  <br /> ❌ Na goal automatisch in tekst veld gaan van de goal? WIP
+
 
 # Bugs:
 ✅ LED Boarding feed sluit niet goed af. => resolved.
@@ -32,6 +34,7 @@ The correct screen can be edited in the config file.
   <br /> ❌ Flash bij switchen tussen video en afbeelding en bij 2 videos na elkaar (sponsor)
   <br /> ❌ Clear all fields bij lineup button.
   <br /> ✅ Als lineup gespeeld heeft dan wordt greg niet getoond maar de laatse video van de lineup. => resolved door een nieuwe stack te gebruiken voor deze visual only. HEEFT NIET DE JUIST GROOTTE!!!!
+  <br /> ❌ Implement more Ridepulse :)
   
 # This is still a work in process...
 
