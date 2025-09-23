@@ -23,9 +23,9 @@
   "timer_margin_bottom": 5,
   "timer_margin_right": 0,
 
-  "controlpanel_display_number": 2,
-  "scoreboard_display_number": 1,
-  "ledboarding_display_number": 0,
+  "controlpanel_display_number": 0,
+  "scoreboard_display_number": 2,
+  "ledboarding_display_number": 1,
 
   "database_url": "https://open.spotify.com/playlist/07vuLI875maidRM60L6rjV?si=61f5f5015af34261",
   "halftime_url": "https://open.spotify.com/playlist/5mCSX2xOfz36RGraeFSGRo?si=cf9237d90e93408e",
