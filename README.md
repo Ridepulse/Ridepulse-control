@@ -20,7 +20,7 @@ The correct screen can be edited in the config file.
   <br /> ✅ Startuur van de match kan ingegeven worden bovenaan. Dit update de verschillende timings van audio.
   <br /> ✅ Most of the functions can be executed with different keyboard buttons.
   <br /> ✅ Fade in/out function excists.
-  <br /> ❌ Na goal automatisch in tekst veld gaan van de goal? WIP
+  <br /> ❌ config aanpassen in software zelf.
 
 # Bugs:
 ✅ LED Boarding feed sluit niet goed af. => resolved.
