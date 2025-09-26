@@ -9,3 +9,6 @@ scoreboard_app.spec
 scoreboard_app.py
 Gameday.mp4
 config.json
+/Rendering_boarding/build
+Rendering_boarding/logo.ico
+/Rendering_boarding/Media/layout_afbeeldingen
