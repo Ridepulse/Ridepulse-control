@@ -958,10 +958,10 @@ class ControlPanel(QWidget):
 
     def run_rendering(self):
         try:
-            script_path = os.path.join(os.path.dirname(__file__), "Rendering Boarding", "rendering.exe")
+            script_path = os.path.join(os.path.dirname(__file__), "Rendering_boarding", "rendering.exe")
             subprocess.Popen([sys.executable, script_path])
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Kon rendering.exe niet starten:\n{e}")
+            QMessageBox.critical(self, "Error", f"Could not start {script_path}:\n{e}")
 
     def update_match_time(self):
         text = self.match_time_input.text().strip()
