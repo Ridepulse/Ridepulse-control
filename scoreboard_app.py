@@ -18,8 +18,6 @@ from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 from ctypes import POINTER, cast
 from comtypes import CLSCTX_ALL
 
-
-PLAYLIST_FILE = 'video_playlists.json'
 GOAL_SOUND = os.path.join("Media", "goal.mp3")
 PROLEAGUE_SOUND = os.path.join("Media", "proleague.wav")
 PREGAME_MIXTAPE = os.path.join("Media", "pregame_mixtape.mp3")
@@ -396,7 +394,6 @@ class ControlPanel(QWidget):
         self.sponsor_watchdog.timeout.connect(self._sponsor_watchdog_tick)
         self._sp_last_ms = -1
         self._sp_frozen_for = 0
-
         self.spotify_timer = QTimer(self)
         self.spotify_timer.setInterval(1000)
         self.spotify_timer.timeout.connect(self.update_spotify_remaining)
@@ -498,6 +495,13 @@ class ControlPanel(QWidget):
             print("Spotify play/pause error:", e)
 
     def keyPressEvent(self, event):
+        focused = QApplication.focusWidget()
+
+        # Als we in een QLineEdit zitten en ESC drukken -> focus weg
+        if isinstance(focused, QLineEdit) and event.key() == Qt.Key_Escape:
+            focused.clearFocus()
+            return
+
         key = event.key()
         try:
             if key == Qt.Key_T:
@@ -602,7 +606,7 @@ class ControlPanel(QWidget):
             if key == Qt.Key_Down:
                 self.fade_out_volume()
                 return
-            if key == Qt.Key_Escape:
+            if key == Qt.Key_Backspace:
                 self.stop_all_local_media()
                 return
             super().keyPressEvent(event)
@@ -672,7 +676,7 @@ class ControlPanel(QWidget):
     def _play_local_media(self, player: QMediaPlayer):
         self._stop_all_local_media()
         self._set_active_local_player(player)
-        player.stop()  # reset positie naar 0
+        player.stop()
         player.play()
 
 
@@ -683,7 +687,7 @@ class ControlPanel(QWidget):
 
         screens = QApplication.screens()
         if len(screens) < 3:
-            QMessageBox.warning(self, "Screen issue", f"Only {len(screens)} screens connected.")
+            QMessageBox.warning(self, "Screen issue", f"Only {len(screens)} screens connected. Software will shutdown.")
             return
 
         screen = screens[ledboarding_display_number]
@@ -716,7 +720,7 @@ class ControlPanel(QWidget):
         try:
             self.loop_list_player.set_playback_mode(vlc.PlaybackMode.loop)
         except Exception:
-            self.loop_list_player.set_playback_mode(1)  # fallback
+            self.loop_list_player.set_playback_mode(1)
 
         em = self.loop_player.event_manager()
         em.event_attach(vlc.EventType.MediaPlayerPaused, lambda e: self.loop_player.play())
@@ -798,7 +802,6 @@ class ControlPanel(QWidget):
         main_layout.setSpacing(20)
         main_layout.setContentsMargins(20, 20, 20, 20)
 
-        # --- Scoreboard Section ---
         scoreboard_layout = QVBoxLayout()
         scoreboard_layout.setSpacing(10)
 
@@ -1586,7 +1589,6 @@ class ControlPanel(QWidget):
 
         QTimer.singleShot(500, check_end)
 
-
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     display = ScoreboardDisplay()
@@ -1594,4 +1596,4 @@ if __name__ == '__main__':
     panel.update_match_time()
     display.show()
     panel.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec_()) #BLIJFT ERVAN AF
