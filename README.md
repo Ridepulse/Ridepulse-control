@@ -19,6 +19,8 @@ The correct screen can be edited in the config file.
   <br /> ✅ Import en export mogelijk van sponsoren voor het scorebord mogelijk gemaakt vanuit controlpanel, bij het verwijderen worden sponsoren gearchiveerd naar Scorebord_archive.
   <br /> ✅ Startuur van de match kan ingegeven worden bovenaan. Dit update de verschillende timings van audio.
   <br /> ✅ Most of the functions can be executed with different keyboard buttons.
+  <br /> ✅ Visual of Greg is being displayed automaticly in min. 4, this time in right resolution.
+  <br /> ❗ It is possible to render loops in software, still need to change file location of the loop to the right folder.
   <br /> ✅ Fade in/out function excists.
   <br /> ❌ config aanpassen in software zelf.
 
@@ -32,7 +34,6 @@ The correct screen can be edited in the config file.
   <br /> ✅ 15 minuten timer voor half time => implemented, maar lelijk!
   <br /> ❌ (Mss gewoon verschillende VLC vensters die een single loop afspelen voor led boarding?)
   <br /> ❌ Flash bij switchen tussen video en afbeelding en bij 2 videos na elkaar (sponsor)
-  <br /> ✅ Als lineup gespeeld heeft dan wordt greg niet getoond maar de laatse video van de lineup. => resolved door een nieuwe stack te gebruiken voor deze visual only. HEEFT NIET DE JUIST GROOTTE!!!!
   <br /> ❌ Implement more Ridepulse :)
   
 # This is still a work in process...
