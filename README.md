@@ -20,12 +20,12 @@ The correct screen can be edited in the config file.
   <br /> ✅ Startuur van de match kan ingegeven worden bovenaan. Dit update de verschillende timings van audio.
   <br /> ✅ Most of the functions can be executed with different keyboard buttons.
   <br /> ✅ Fade in/out function excists.
-  <br /> ❌ Na goal automatisch in tekst veld gaan van de goal? WIP
+  <br /> ❌ config aanpassen in software zelf.
 
 # Bugs:
 ✅ LED Boarding feed sluit niet goed af. => resolved.
   <br /> ❗ De top playlist klikt niet in het juiste label, stop werkt totaal niet tho (opent ook een ander vlc window ofzo). => Top video playlsit is uit de code gehaald. Kunnen nu evt greg label gebruiken?
-  <br /> ❌ Functie creeren om main.mp4 en gameday.mp4 te renderen vanuit deze software met rendering code. => Werkt niet, opent nieuwe instantie van Ridepulse system (possible solution: exe van maken en die runnen)
+  <br /> ❌ Rendering.exe Werkt niet, opent nieuwe instantie van Ridepulse system (possible solution: exe van maken en die runnen? werkt voorlopig niet tho)
   <br /> ❌ Makkelijkere manier vinden om presets toe te voegen. (Mss via config file?)
   <br /> ✅ RESET NAAR STACK VAN SCOREBORD IPV LINEUP OF GOAL KNOP!! + BUG ALS GREG AFGELOPEN IS! => Bug has been resolved. 
   <br /> ❗ Extra tijd visuals?
