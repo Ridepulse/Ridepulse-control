@@ -292,17 +292,36 @@ class ScoreboardDisplay(QWidget):
 class CountdownDialog(QDialog):
     def __init__(self, seconds, parent=None):
         super().__init__(parent)
-        self.setFixedSize(300, 150)
-        self.setWindowTitle("Halftime")
+        self.setFixedSize(500, 450)
+        self.setWindowTitle("Halftime Countdown")
         self.setObjectName("HalftimeCountdown")
         self.setModal(False)
+        self.setStyleSheet("background-color: #111; color: white;")
+
         layout = QVBoxLayout(self)
-        title = QLabel("Remaining time:")
-        title.setStyleSheet("font-size: 20px;")
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(10)
+        layout.setAlignment(Qt.AlignCenter)
+
+        logo_path = os.path.join("Media", "logo.png")
+        self.logo_label = QLabel()
+        self.logo_label.setAlignment(Qt.AlignCenter)
+        if os.path.exists(logo_path):
+            pixmap = QPixmap(logo_path).scaled(
+                400, 400, Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
+            self.logo_label.setPixmap(pixmap)
+        else:
+            self.logo_label.setText("[logo.png not found]")
+            self.logo_label.setStyleSheet("font-size: 14px; color: #999;")
+
         self.label = QLabel("--:--")
-        self.label.setStyleSheet("font-size: 35px;")
-        layout.addWidget(title)
+        self.label.setAlignment(Qt.AlignCenter)
+        self.label.setStyleSheet("font-size: 60px; font-weight: bold; color: #563A8F;")
+
+        layout.addWidget(self.logo_label)
         layout.addWidget(self.label)
+
         self.seconds = seconds
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._tick)
@@ -351,7 +370,7 @@ class ControlPanel(QWidget):
         self.media_timer = QTimer()
         self.media_timer.timeout.connect(self.update_remaining_time)
         self.time_remaining_label = QLabel("Time remaining: --:--")
-        self.time_remaining_label.setStyleSheet("color: red; font-size: 20px; padding: 4px;")
+        self.time_remaining_label.setStyleSheet("color: #463A8F; font-size: 20px; padding: 5px;")
 
         self.goal_sound = QMediaPlayer()
         self.goal_sound.setMedia(QMediaContent(QUrl.fromLocalFile(os.path.abspath(GOAL_SOUND))))
@@ -687,7 +706,7 @@ class ControlPanel(QWidget):
 
         screens = QApplication.screens()
         if len(screens) < 3:
-            QMessageBox.warning(self, "Screen issue", f"Only {len(screens)} screens connected. Software will shutdown.")
+            QMessageBox.warning(self, "Screen issue", f"Only {len(screens)} screens connected.")
             return
 
         screen = screens[ledboarding_display_number]
@@ -930,6 +949,18 @@ class ControlPanel(QWidget):
 
         loop_video_layout = QVBoxLayout()
         loop_video_layout.setSpacing(10)
+        logo_path = os.path.join("Media", "logo.png")
+        self.logo_small = QLabel()
+        self.logo_small.setAlignment(Qt.AlignCenter)
+        if os.path.exists(logo_path):
+            pixmap = QPixmap(logo_path).scaled(
+                350, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
+            self.logo_small.setPixmap(pixmap)
+        else:
+            self.logo_small.setText("[logo.png not found]")
+            self.logo_small.setStyleSheet("color: #777; font-size: 12px;")
+        loop_video_layout.addWidget(self.logo_small, alignment=Qt.AlignCenter)
         loop_video_layout.addWidget(self.time_remaining_label)
         loop_video_layout.addWidget(QLabel("Local Audio Controls"))
         loop_video_layout.addWidget(self.create_button("Stop All Local Media", self.stop_all_local_media))
@@ -944,10 +975,11 @@ class ControlPanel(QWidget):
         loop_video_layout.addWidget(QLabel("Other Software"))
         loop_video_layout.addWidget(self.create_button("Open Spotify", self.open_spotify_app))
         loop_video_layout.addWidget(self.create_button("Open LedSet", self.open_ledset_app))
+        loop_video_layout.addWidget(self.create_button("Open Config File", self.open_config_file))
         loop_video_layout.addWidget(self.create_button("Render New Loop", self.run_rendering))
         loop_video_layout.addWidget(QLabel("Loop Video (3e scherm)"))
-        loop_video_layout.addWidget(self.create_button("Toon Main", lambda: self.set_loop_video("Main.mp4")))
-        loop_video_layout.addWidget(self.create_button("Toon Gameday", lambda: self.set_loop_video("Gameday.mp4")))
+        loop_video_layout.addWidget(self.create_button("Toon Main", lambda: self.set_loop_video(os.path.join("Rendering_boarding", "Main.mp4"))))
+        loop_video_layout.addWidget(self.create_button("Toon Gameday", lambda: self.set_loop_video(os.path.join("Media", "Gameday.mp4"))))
         loop_video_layout.addWidget(self.create_button("Reset boarding", lambda: self.reset_loop_video(os.path.join("Media", "default.jpg"))))
 
         main_layout.addLayout(scoreboard_layout, 1)
@@ -1011,6 +1043,17 @@ class ControlPanel(QWidget):
         if pos >= dur:
             self.media_timer.stop()
             self.time_remaining_label.setText("Time remaining: --:--")
+
+    def open_config_file(self):
+        try:
+            config_path = os.path.join(os.getcwd(), "config.json")
+            if not os.path.exists(config_path):
+                QMessageBox.warning(self, "Config missing", f"Could not find: {config_path}")
+                return
+            os.startfile(config_path)
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Could not open config file:\n{e}")
 
     def stop_all_local_media(self):
         for player in [self.goal_sound, self.pregame_mixtape, self.countdown, self.proleague_sound]:
