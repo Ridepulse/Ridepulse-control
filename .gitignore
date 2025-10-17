@@ -12,3 +12,4 @@ config.json
 /Rendering_boarding/build
 Rendering_boarding/logo.ico
 /Rendering_boarding/Media/layout_afbeeldingen
+Rendering_boarding/Rendering.py
