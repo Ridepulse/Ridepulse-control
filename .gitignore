@@ -13,3 +13,4 @@ config.json
 Rendering_boarding/logo.ico
 /Rendering_boarding/Media/layout_afbeeldingen
 Rendering_boarding/Rendering.py
+scoreboard_app.py
