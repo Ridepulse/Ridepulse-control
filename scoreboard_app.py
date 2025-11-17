@@ -504,14 +504,70 @@ class ControlPanel(QWidget):
     def fade_out_volume(self):
         self.start_fade(0.0, steps=50, delay_ms=50)
 
-    def spotify_play_pause(self):
+    def update_spotify_button_text(self):
         try:
-            if self.spotify.player.is_playing():
-                self.spotify.player.pause()
+            playback = sp.current_playback()
+            if playback and playback.get("is_playing"):
+                self.spotify_toggle_btn.setText("Pause Spotify")
             else:
-                self.spotify.player.play()
+                self.spotify_toggle_btn.setText("Play Spotify")
+        except Exception:
+            # if something fails, default to Play
+            try:
+                self.spotify_toggle_btn.setText("Play Spotify")
+            except Exception:
+                pass
+
+    def get_active_device_id(self):
+        try:
+            devices_info = sp.devices()
+            devs = devices_info.get('devices', [])
+            if not devs:
+                return None
+            for d in devs:
+                if d.get('id') == globals().get('device_id'):
+                    return d.get('id')
+            return devs[0].get('id')
         except Exception as e:
-            print("Spotify play/pause error:", e)
+            print("Error getting Spotify devices:", e)
+            return None
+
+    def toggle_spotify(self):
+        try:
+            did = self.get_active_device_id()
+            if not did:
+                QMessageBox.warning(self, "Spotify device", "Geen geldig Spotify-apparaat gevonden.")
+                return
+
+            globals()['device_id'] = did
+
+            playback = sp.current_playback()
+            if playback and playback.get("is_playing"):
+                try:
+                    sp.pause_playback(device_id=did)
+                except Exception as e:
+                    print("Spotify pause error:", e)
+                    QMessageBox.warning(self, "Spotify error", f"Could not pause: {e}")
+                finally:
+                    self.spotify_timer.stop()
+                    self.current_spotify_track_id = None
+            else:
+                try:
+                    self.stop_all_local_media()
+                    sp.start_playback(device_id=did)
+                except Exception as e:
+                    print("Spotify start error:", e)
+                    QMessageBox.warning(self, "Spotify error", f"Could not start: {e}")
+                else:
+                    self.spotify_timer.start()
+
+            QTimer.singleShot(150, self.update_spotify_button_text)
+        except Exception as e:
+            print("toggle_spotify error:", e)
+            try:
+                QMessageBox.warning(self, "Spotify", f"Error while toggling: {e}")
+            except Exception:
+                pass
 
     def keyPressEvent(self, event):
         focused = QApplication.focusWidget()
@@ -535,17 +591,10 @@ class ControlPanel(QWidget):
                     self.goal_input.setFocus()
                 return
             if key == Qt.Key_Space:
-                playback = sp.current_playback()
                 try:
-                    if playback and playback["is_playing"]:
-                        sp.pause_playback(device_id=device_id)
-                        self.spotify_timer.stop()
-                        self.current_spotify_track_id = None
-                    else:
-                        sp.start_playback(device_id=device_id)
-                        self.spotify_timer.start()
+                    self.toggle_spotify()
                 except Exception as e:
-                    print("Spotify play/pause error:", e)
+                    print("Space toggle error:", e)
                 return
             if key == Qt.Key_1:
                 self.start_playlist_database()
@@ -681,6 +730,7 @@ class ControlPanel(QWidget):
                 remaining = max(0, dur - pos)
                 m, s = divmod(remaining, 60)
                 self.time_remaining_label.setText(f"Time remaining: {m:02}:{s:02}")
+            QTimer.singleShot(0, self.update_spotify_button_text)
 
         except Exception:
             pass
@@ -783,8 +833,15 @@ class ControlPanel(QWidget):
 
     def initUI(self):
         self.setWindowTitle("Ridepulse System")
-        self.move(QApplication.screens()[controlpanel_display_number].geometry().topLeft())
-        self.showMaximized()
+        try:
+            screen = QApplication.screens()[controlpanel_display_number]
+            avail = screen.availableGeometry()
+            self.setGeometry(avail)
+            self.move(avail.topLeft())
+            self.showNormal()
+        except Exception as e:
+            print("Could not set Ridepulse Controlpanel screen geometry:", e)
+            self.showMaximized()
 
         self.setStyleSheet("""
             QWidget {
@@ -968,8 +1025,9 @@ class ControlPanel(QWidget):
         loop_video_layout.addWidget(self.create_button("Fade Out", self.fade_out_volume))
 
         loop_video_layout.addWidget(QLabel("Spotify Controls"))
-        loop_video_layout.addWidget(self.create_button("Pause Spotify", self.pause_spotify))
-        loop_video_layout.addWidget(self.create_button("Resume Spotify", self.play_spotify))
+        self.spotify_toggle_btn = QPushButton("Play Spotify")
+        self.spotify_toggle_btn.clicked.connect(self.toggle_spotify)
+        loop_video_layout.addWidget(self.spotify_toggle_btn)
         loop_video_layout.addWidget(self.create_button("Next Spotify Song", self.spotify_next))
         loop_video_layout.addWidget(self.create_button("Previous Spotify Song", self.spotify_previous))
         loop_video_layout.addWidget(QLabel("Other Software"))
@@ -990,6 +1048,7 @@ class ControlPanel(QWidget):
         self.setLayout(main_layout)
         self.setFocusPolicy(Qt.StrongFocus)
         self.setFocus()
+        self.update_spotify_button_text()
 
     def run_rendering(self):
         try:
@@ -1170,7 +1229,6 @@ class ControlPanel(QWidget):
         print("Dummy button hihi")
 
     def start_pregame_mixtape(self):
-        self.fade_in_volume()
         playback = sp.current_playback()
         if playback and playback["is_playing"]:
             sp.pause_playback(device_id=device_id)
@@ -1193,87 +1251,118 @@ class ControlPanel(QWidget):
     def spotify_previous(self):
         sp.previous_track(device_id=device_id)
 
-    def pause_spotify(self):
-        playback = sp.current_playback()
-        if playback and playback["is_playing"]:
-            sp.pause_playback(device_id=device_id)
-        else:
-            QMessageBox.warning(self, "Spotify", "Spotify is already paused.")
-        self.spotify_timer.stop()
-        self.current_spotify_track_id = None
-
-    def play_spotify(self):
-        playback = sp.current_playback()
-        if playback and playback["is_playing"]:
-            QMessageBox.warning(self, "Spotify", "Spotify is already playing.")
-        else:
-            sp.start_playback(device_id=device_id)
-            self.spotify_timer.start()
-
     def start_baila(self, name):
+        did = self.get_active_device_id()
+        if not did:
+            QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
+            return
+        globals()['device_id'] = did
+
         PLAYLIST_URI = "https://open.spotify.com/album/2ojXXfh1QKhimrvz4wt97G"
         sp.shuffle(state=False, device_id=device_id)
+        self.stop_all_local_media()
         sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI)
         self.current_spotify_track_id = None
         self.spotify_timer.start()
-        self.fade_in_volume()
 
     def start_euromir(self, name):
+        did = self.get_active_device_id()
+        if not did:
+            QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
+            return
+        globals()['device_id'] = did
+
         PLAYLIST_URI = "https://open.spotify.com/album/1PrgiMlNc0fBtW0U9TdQFj"
         sp.shuffle(state=False, device_id=device_id)
+        self.stop_all_local_media()
         sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI, offset={"position": 1})
         self.current_spotify_track_id = None
         self.spotify_timer.start()
-        self.fade_in_volume()
 
     def start_playlist_database(self):
+        did = self.get_active_device_id()
+        if not did:
+            QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
+            return
+        globals()['device_id'] = did
+
         PLAYLIST_URI = DATABASE_URL
         sp.shuffle(state=True, device_id=device_id)
+        self.stop_all_local_media()
         sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI)
         self.current_spotify_track_id = None
         self.spotify_timer.start()
-        self.fade_in_volume()
 
     def start_playlist_halftime(self):
+        did = self.get_active_device_id()
+        if not did:
+            QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
+            return
+        globals()['device_id'] = did
+
         PLAYLIST_URI = HALFTIME_URL
         sp.shuffle(state=False, device_id=device_id)
+        self.stop_all_local_media()
         sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI)
         self.current_spotify_track_id = None
         self.spotify_timer.start()
         self.halftime_dialog = CountdownDialog(15 * 60, self)
         self.halftime_dialog.show()
-        self.fade_in_volume()
 
     def start_playlist_pregame(self):
+        did = self.get_active_device_id()
+        if not did:
+            QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
+            return
+        globals()['device_id'] = did
+
         PLAYLIST_URI = PREGAME_URL
         sp.shuffle(state=False, device_id=device_id)
+        self.stop_all_local_media()
         sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI)
         self.current_spotify_track_id = None
         self.spotify_timer.start()
-        self.fade_in_volume()
 
 
     def start_synrise(self):
-        self.fade_in_volume()
+        did = self.get_active_device_id()
+        if not did:
+            QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
+            return
+        globals()['device_id'] = did
+
         self.pregame_mixtape.stop()
         PLAYLIST_URI = PREGAME_URL
         sp.shuffle(state=False, device_id=device_id)
+        self.stop_all_local_media()
         sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI, offset={"position": 4})
         self.current_spotify_track_id = None
         self.spotify_timer.start()
 
     def start_playlist_winst(self):
-        self.fade_in_volume()
+        did = self.get_active_device_id()
+        if not did:
+            QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
+            return
+        globals()['device_id'] = did
+
         PLAYLIST_URI = WIN_URL
         sp.shuffle(state=False, device_id=device_id)
+        self.stop_all_local_media()
         sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI)
         self.current_spotify_track_id = None
         self.spotify_timer.start()
 
     def start_playlist_verlies(self):
-        self.fade_in_volume()
+        did = self.get_active_device_id()
+        if not did:
+            QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
+            return
+        globals()['device_id'] = did
+
         PLAYLIST_URI = LOSE_URL
         sp.shuffle(state=False, device_id=device_id)
+        self.stop_all_local_media()
         sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI)
         self.current_spotify_track_id = None
         self.spotify_timer.start()
@@ -1305,8 +1394,9 @@ class ControlPanel(QWidget):
         score = int(label.text()) + 1
         label.setText(str(score))
         self.display.top_sporting_score.setText(str(score))
-        self.fade_in_volume()
+        self._set_master_volume(0.0)
         self._play_local_media(self.goal_sound)
+        self.fade_in_volume()
 
     def add_visitor_goal(self, label):
         score = int(label.text()) + 1
