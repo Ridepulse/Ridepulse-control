@@ -660,6 +660,9 @@ class ControlPanel(QWidget):
             if key == Qt.Key_F11:
                 self.reset_loop_video(os.path.join("Media", "default.jpg"))
                 return
+            if key == Qt.Key_F12:
+                self.run_rendering()
+                return
             if key == Qt.Key_Right:
                 self.spotify_next()
                 return
