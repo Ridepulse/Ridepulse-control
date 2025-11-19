@@ -340,7 +340,6 @@ class ControlPanel(QWidget):
     def __init__(self, display_window):
         super().__init__()
         self.display = display_window
-        self.is_fullscreen = True
         self.vlc_instance = vlc.Instance()
         self.lineup_vlc_instance = vlc.Instance()
         self.lineup_video_player = self.lineup_vlc_instance.media_player_new()
@@ -512,7 +511,6 @@ class ControlPanel(QWidget):
             else:
                 self.spotify_toggle_btn.setText("Play Spotify")
         except Exception:
-            # if something fails, default to Play
             try:
                 self.spotify_toggle_btn.setText("Play Spotify")
             except Exception:
@@ -731,7 +729,6 @@ class ControlPanel(QWidget):
                 m, s = divmod(remaining, 60)
                 self.time_remaining_label.setText(f"Time remaining: {m:02}:{s:02}")
             QTimer.singleShot(0, self.update_spotify_button_text)
-
         except Exception:
             pass
 
@@ -741,6 +738,15 @@ class ControlPanel(QWidget):
                 p.stop()
             except Exception:
                 pass
+
+    def is_local_audio_playing(self):
+        players = [
+            self.goal_sound,
+            self.pregame_mixtape,
+            self.countdown,
+            self.proleague_sound
+        ]
+        return any(p.state() == QMediaPlayer.PlayingState for p in players)
 
     def _play_local_media(self, player: QMediaPlayer):
         self._stop_all_local_media()
@@ -833,6 +839,7 @@ class ControlPanel(QWidget):
 
     def initUI(self):
         self.setWindowTitle("Ridepulse System")
+        self.setWindowFlags(Qt.FramelessWindowHint)
         try:
             screen = QApplication.screens()[controlpanel_display_number]
             avail = screen.availableGeometry()
@@ -945,6 +952,10 @@ class ControlPanel(QWidget):
         lineup_layout.addWidget(self.goal_input)
         self.goal_input.returnPressed.connect(self.play_goal_video)
 
+        lineup_layout.addWidget(self.create_button("Toon Main", lambda: self.set_loop_video(os.path.join("Rendering_boarding", "Main.mp4"))))
+        lineup_layout.addWidget(self.create_button("Toon Gameday", lambda: self.set_loop_video(os.path.join("Media", "Gameday.mp4"))))
+        lineup_layout.addWidget(self.create_button("Reset boarding", lambda: self.reset_loop_video(os.path.join("Media", "default.jpg"))))
+
         spotify_layout = QVBoxLayout()
         spotify_layout.setSpacing(10)
         timeupdate_layout = QVBoxLayout()
@@ -1049,6 +1060,7 @@ class ControlPanel(QWidget):
         self.setFocusPolicy(Qt.StrongFocus)
         self.setFocus()
         self.update_spotify_button_text()
+     #   self.is_fullscreen = True   niet nodig anders wordt taakbalk genegeerd.
 
     def run_rendering(self):
         try:
@@ -1251,19 +1263,15 @@ class ControlPanel(QWidget):
     def spotify_previous(self):
         sp.previous_track(device_id=device_id)
 
-    def start_baila(self, name):
-        did = self.get_active_device_id()
-        if not did:
-            QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
-            return
-        globals()['device_id'] = did
-
-        PLAYLIST_URI = "https://open.spotify.com/album/2ojXXfh1QKhimrvz4wt97G"
-        sp.shuffle(state=False, device_id=device_id)
+    def start_baila(self, name=None):
         self.stop_all_local_media()
+        PLAYLIST_URI = "https://open.spotify.com/album/2ojXXfh1QKhimrvz4wt97G"
+
+        sp.shuffle(state=False, device_id=device_id)
         sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI)
         self.current_spotify_track_id = None
         self.spotify_timer.start()
+        self.fade_in_volume()
 
     def start_euromir(self, name):
         did = self.get_active_device_id()
@@ -1686,7 +1694,16 @@ class ControlPanel(QWidget):
             sp.pause_playback(device_id=device_id)
         else:
             pass
-        self._play_local_media(self.proleague_sound)
+        def after_fade_out():
+            self.stop_all_local_media()
+            self._set_master_volume(1.0)
+            self._play_local_media(self.proleague_sound)
+        if self.is_local_audio_playing():
+            self.fade_out_volume()
+            QTimer.singleShot(4000,after_fade_out)
+        else:
+            after_fade_out()
+
 
     def play_goal_video(self):
         filename = self.goal_input.text().strip()
