@@ -10,7 +10,6 @@ The correct screen can be edited in the config file.
 # Important notes:
  ❗ Main.mp4 and Gameday.mp4 are needed in the Rendering_boarding folder, this is also the place where the rendering function saves them.
  ❗ DMG needs to be manually put in the folder 'Scorebord' because the file size is too large for GitHub.
- ❗ SPOTIFY: The autoplay new songs needs to be turned off!
 
 # Keyboard shortcuts:
 ESC: Exits a text field
@@ -47,6 +46,7 @@ ESC: Exits a text field
   <br /> ✅ Fade in/out function excists.
   <br /> ✅ Config can be edited by clicking a button in the software, this will open Notepad.
   <br /> ❌ Implement intern media circuit (F5-F8)
+  <br /> ❌ Autoplay alle muziekbestanden-buttons?
 
 # Bugs:
 ✅ LED Boarding feed sluit niet goed af. => resolved.
