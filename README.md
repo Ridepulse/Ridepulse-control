@@ -31,6 +31,8 @@ ESC: Exits a text field
 <br />F10: Boarding: Gameday
 <br />F11: Boarding: Reset
 <br />F12: Boarding: Render new loop (to do)
+<br />Q: Exit
+
 
 
 # Functions:
