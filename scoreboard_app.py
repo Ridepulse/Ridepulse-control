@@ -932,7 +932,6 @@ class ControlPanel(QWidget):
         scoreboard_layout.addWidget(self.create_button("Remove Sponsors", self.remove_sponsor_files))
         scoreboard_layout.addWidget(self.create_button("Start Sponsors", self.start_sponsors_loop))
         scoreboard_layout.addWidget(QLabel(""))
-        scoreboard_layout.addWidget(self.create_button("Toggle Fullscreen", self.toggle_fullscreen))
         scoreboard_layout.addWidget(self.create_button("Exit", self.exit_application))
 
         lineup_layout = QVBoxLayout()
@@ -954,7 +953,7 @@ class ControlPanel(QWidget):
         lineup_layout.addWidget(QLabel("Goal Visual"))
         lineup_layout.addWidget(self.goal_input)
         self.goal_input.returnPressed.connect(self.play_goal_video)
-
+        lineup_layout.addWidget(QLabel("Loop Video (3e scherm)"))
         lineup_layout.addWidget(self.create_button("Toon Main", lambda: self.set_loop_video(os.path.join("Rendering_boarding", "Main.mp4"))))
         lineup_layout.addWidget(self.create_button("Toon Gameday", lambda: self.set_loop_video(os.path.join("Media", "Gameday.mp4"))))
         lineup_layout.addWidget(self.create_button("Reset boarding", lambda: self.reset_loop_video(os.path.join("Media", "default.jpg"))))
@@ -1049,10 +1048,6 @@ class ControlPanel(QWidget):
         loop_video_layout.addWidget(self.create_button("Open LedSet", self.open_ledset_app))
         loop_video_layout.addWidget(self.create_button("Open Config File", self.open_config_file))
         loop_video_layout.addWidget(self.create_button("Render New Loop", self.run_rendering))
-        loop_video_layout.addWidget(QLabel("Loop Video (3e scherm)"))
-        loop_video_layout.addWidget(self.create_button("Toon Main", lambda: self.set_loop_video(os.path.join("Rendering_boarding", "Main.mp4"))))
-        loop_video_layout.addWidget(self.create_button("Toon Gameday", lambda: self.set_loop_video(os.path.join("Media", "Gameday.mp4"))))
-        loop_video_layout.addWidget(self.create_button("Reset boarding", lambda: self.reset_loop_video(os.path.join("Media", "default.jpg"))))
 
         main_layout.addLayout(scoreboard_layout, 1)
         main_layout.addLayout(lineup_layout, 1)
@@ -1393,13 +1388,6 @@ class ControlPanel(QWidget):
     def update_visitor_name(self):
         self.display.visitor_name.setText(self.team2_name.text())
         self.display.top_visitor_name.setText(self.team2_name.text())
-
-    def toggle_fullscreen(self):
-        if self.is_fullscreen:
-            self.showNormal()
-        else:
-            self.showFullScreen()
-        self.is_fullscreen = not self.is_fullscreen
 
     def add_sporting_goal(self, label):
         score = int(label.text()) + 1

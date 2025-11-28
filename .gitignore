@@ -14,3 +14,5 @@ Rendering_boarding/logo.ico
 /Rendering_boarding/Media/layout_afbeeldingen
 Rendering_boarding/Rendering.py
 scoreboard_app.py
+Rendering_boarding/Rendering_old.py
+Rendering_boarding/sponsors_old.csv
