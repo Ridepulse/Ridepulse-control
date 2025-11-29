@@ -58,7 +58,7 @@ ESC: Exits a text field
   <br /> ❗ Extra tijd visuals?
   <br /> ✅ 15 minuten timer voor half time => implemented, maar lelijk!
   <br /> ❌ Flash bij switchen tussen video en afbeelding en bij 2 videos na elkaar (sponsor)
-  <br /> ❌ Rendering werkt niet, opent nieuwe instantie, DATAbase niet op shuffle.
+  <br /> ❌ Rendering werkt niet, opent nieuwe instantie, DATAbase niet op shuffle. + bestanden in mediaz  folcder???
   
 # This is still a work in process...
 
