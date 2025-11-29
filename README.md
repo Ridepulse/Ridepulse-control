@@ -49,7 +49,7 @@ ESC: Exits a text field
   <br /> ✅ Config can be edited by clicking a button in the software, this will open Notepad.
   <br /> ❌ Implement intern media circuit (F5-F8)
   <br /> ❌ Autoplay alle muziekbestanden-buttons?
-  <br /> ❌ Mededeling?
+  <br /> ❌ Mededeling en knop 'refresh github'?
 
 
 # Bugs:
