@@ -49,7 +49,6 @@ ESC: Exits a text field
   <br /> ✅ Config can be edited by clicking a button in the software, this will open Notepad.
   <br /> ❌ Implement intern media circuit (F5-F8)
   <br /> ❌ Autoplay alle muziekbestanden-buttons?
-  <br /> ❌ Mededeling en knop 'refresh github'?
 
 
 # Bugs:
@@ -60,7 +59,7 @@ ESC: Exits a text field
   <br /> ❗ Extra tijd visuals?
   <br /> ✅ 15 minuten timer voor half time => implemented, maar lelijk!
   <br /> ❌ Flash bij switchen tussen video en afbeelding en bij 2 videos na elkaar (sponsor)
-  <br /> ❌ Rendering werkt niet, opent nieuwe instantie, DATAbase niet op shuffle. + bestanden in mediaz  folcder???
+  <br /> ✅ Rendering werkt niet, opent nieuwe instantie => Should be resolved
   
 # This is still a work in process...
 
