@@ -283,9 +283,29 @@ class ScoreboardDisplay(QWidget):
         greg_layout.addWidget(self.greg_label, alignment=Qt.AlignLeft | Qt.AlignTop)
         greg_page.setLayout(greg_layout)
 
-        self.stack.addWidget(main_page)    # index 0
+        self.mededeling_container = QWidget()
+        self.mededeling_container.setFixedSize(360, 240)
+        self.mededeling_stack = QStackedLayout()
+        self.mededeling_stack.setContentsMargins(0, 0, 0, 0)
+        self.mededeling_stack.setStackingMode(QStackedLayout.StackAll)
+        self.mededeling_bg = QLabel()
+        self.mededeling_bg.setFixedSize(360, 240)
+        self.mededeling_bg.setAlignment(Qt.AlignCenter)
+        self.mededeling_text = QLabel("")
+        self.mededeling_text.setWordWrap(True)
+        self.mededeling_text.setAlignment(Qt.AlignCenter)
+        self.mededeling_text.setStyleSheet("color: white;")
+        self.mededeling_text.setFixedWidth(320)
+        self.mededeling_text.setContentsMargins(15, 50, 0, 0)
+        self.mededeling_text.setAttribute(Qt.WA_TranslucentBackground)
+        self.mededeling_stack.addWidget(self.mededeling_bg)
+        self.mededeling_stack.addWidget(self.mededeling_text)
+        self.mededeling_container.setLayout(self.mededeling_stack)
+
+        self.stack.addWidget(main_page)  # index 0
         self.stack.addWidget(lineup_page)  # index 1
-        self.stack.addWidget(greg_page)    # index 2
+        self.stack.addWidget(greg_page)  # index 2
+        self.stack.addWidget(self.mededeling_container)  # index 3
 
         main_layout.addLayout(self.stack)
 
@@ -343,6 +363,7 @@ class ControlPanel(QWidget):
         self.vlc_instance = vlc.Instance()
         self.lineup_vlc_instance = vlc.Instance()
         self.lineup_video_player = self.lineup_vlc_instance.media_player_new()
+        self.lineup_mode_auto = True
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_timer)
@@ -418,6 +439,7 @@ class ControlPanel(QWidget):
         self.current_spotify_track_id = None
 
         self.start_sponsors_loop()
+        self.check_update_available()
 
     def create_button(self, text, callback):
         btn = QPushButton(text)
@@ -936,7 +958,6 @@ class ControlPanel(QWidget):
 
         lineup_layout = QVBoxLayout()
         lineup_layout.setSpacing(10)
-
         lineup_layout.addWidget(QLabel("Line-up Players"))
         for i in range(13):
             line_input = QLineEdit()
@@ -949,14 +970,36 @@ class ControlPanel(QWidget):
                 line_input.returnPressed.connect(self.start_lineup)
 
         lineup_layout.addWidget(self.create_button("Start Line-up Sequence", self.start_lineup))
+
+        self.lineup_mode_btn = QPushButton("Mode: Automatisch")
+        self.lineup_mode_btn.clicked.connect(self.toggle_lineup_mode)
+        lineup_layout.addWidget(self.lineup_mode_btn)
+
+        self.lineup_next_btn = QPushButton("Volgende")
+        self.lineup_next_btn.clicked.connect(self.lineup_next)
+        lineup_layout.addWidget(self.lineup_next_btn)
         lineup_layout.addWidget(self.create_button("Clear All Fields", self.clear_lineup_fields))
+
         lineup_layout.addWidget(QLabel("Goal Visual"))
         lineup_layout.addWidget(self.goal_input)
         self.goal_input.returnPressed.connect(self.play_goal_video)
-        lineup_layout.addWidget(QLabel("Loop Video (3e scherm)"))
-        lineup_layout.addWidget(self.create_button("Toon Main", lambda: self.set_loop_video(os.path.join("Rendering_boarding", "Main.mp4"))))
-        lineup_layout.addWidget(self.create_button("Toon Gameday", lambda: self.set_loop_video(os.path.join("Media", "Gameday.mp4"))))
-        lineup_layout.addWidget(self.create_button("Reset boarding", lambda: self.reset_loop_video(os.path.join("Media", "default.jpg"))))
+
+        lineup_layout.addWidget(QLabel("Mededeling"))
+        self.mededeling_input = QLineEdit()
+        self.mededeling_input.returnPressed.connect(
+            lambda: self.show_mededeling(self.mededeling_input.text())
+        )
+        lineup_layout.addWidget(self.mededeling_input)
+
+        lineup_layout.addWidget(self.create_button(
+            "Toon Mededeling",
+            lambda: self.show_mededeling(self.mededeling_input.text())
+        ))
+
+        lineup_layout.addWidget(self.create_button(
+            "Verberg Mededeling",
+            self.hide_mededeling
+        ))
 
         spotify_layout = QVBoxLayout()
         spotify_layout.setSpacing(10)
@@ -1017,6 +1060,11 @@ class ControlPanel(QWidget):
         spotify_layout.addWidget(self.create_button("MUZIEK UIT BIJ SPIONKOP", self.dummy_button))
         spotify_layout.addWidget(self.create_button("Start EUROMIR", self.start_euromir))
 
+        spotify_layout.addWidget(QLabel("LED boarding"))
+        spotify_layout.addWidget(self.create_button("Toon Main", lambda: self.set_loop_video(os.path.join("Rendering_boarding", "Main.mp4"))))
+        spotify_layout.addWidget(self.create_button("Toon Gameday", lambda: self.set_loop_video(os.path.join("Media", "Gameday.mp4"))))
+        spotify_layout.addWidget(self.create_button("Reset boarding", lambda: self.reset_loop_video(os.path.join("Media", "default.jpg"))))
+
         loop_video_layout = QVBoxLayout()
         loop_video_layout.setSpacing(10)
         logo_path = os.path.join("Media", "logo.png")
@@ -1044,6 +1092,12 @@ class ControlPanel(QWidget):
         loop_video_layout.addWidget(self.create_button("Next Spotify Song", self.spotify_next))
         loop_video_layout.addWidget(self.create_button("Previous Spotify Song", self.spotify_previous))
         loop_video_layout.addWidget(QLabel("Other Software"))
+        update_btn = QPushButton("Update Software (BETA!)")
+        update_btn.clicked.connect(self.update_software)
+        loop_video_layout.addWidget(update_btn)
+        self.update_available_label = QLabel("Up-to-date")
+        self.update_available_label.setStyleSheet("color: green;")
+        loop_video_layout.addWidget(self.update_available_label)
         loop_video_layout.addWidget(self.create_button("Open Spotify", self.open_spotify_app))
         loop_video_layout.addWidget(self.create_button("Open LedSet", self.open_ledset_app))
         loop_video_layout.addWidget(self.create_button("Open Config File", self.open_config_file))
@@ -1058,14 +1112,111 @@ class ControlPanel(QWidget):
         self.setFocusPolicy(Qt.StrongFocus)
         self.setFocus()
         self.update_spotify_button_text()
-     #   self.is_fullscreen = True   niet nodig anders wordt taakbalk genegeerd.
+     #   self.is_fullscreen = True   niet gebruiken! anders wordt taakbalk genegeerd.
 
+    def toggle_lineup_mode(self):
+        self.lineup_mode_auto = not self.lineup_mode_auto
+
+        if self.lineup_mode_auto:
+            self.lineup_mode_btn.setText("Mode: Automatisch")
+        else:
+            self.lineup_mode_btn.setText("Mode: Handmatig")
+
+    def lineup_next(self):
+        if self.lineup_mode_auto:
+            return
+
+        self.lineup_index += 1
+        self.play_next_lineup_video()
+
+    def show_mededeling(self, text):
+        font_path = os.path.join("fonts", "LEMONMILK-MediumItalic.otf")
+        font_id = QFontDatabase.addApplicationFont(font_path)
+        font_family = (
+            "Arial" if font_id == -1
+            else QFontDatabase.applicationFontFamilies(font_id)[0]
+        )
+        print(f"Lemon Milk geladen als: {font_family}")
+        bg_path = os.path.join("Media", "mededeling.jpg")
+        if os.path.exists(bg_path):
+            pixmap = QPixmap(bg_path).scaled(
+                360, 240, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation
+            )
+            self.display.mededeling_bg.setPixmap(pixmap)
+        else:
+            self.display.mededeling_bg.setText("[mededeling.jpg niet gevonden]")
+
+        self.display.mededeling_text.setFont(QFont(font_family, 15, QFont.Bold))
+        self.display.mededeling_text.setAlignment(Qt.AlignCenter)
+        self.display.mededeling_text.setWordWrap(True)
+        self.display.mededeling_text.setText(text)
+        self.display.stack.setCurrentIndex(3)
+
+    def hide_mededeling(self):
+        self.display.stack.setCurrentIndex(0)
+
+    def update_software(self):
+        try:
+            repo_path = os.path.join(os.path.expanduser("~"), "Desktop", "Ridepulse-Control")
+            result = subprocess.run(
+                ["git", "-C", repo_path, "pull"],
+                capture_output=True,
+                text=True
+            )
+
+            if result.returncode != 0:
+                QMessageBox.warning(self, "Update error", "Git error:\n" + result.stderr)
+                return
+            QMessageBox.information(self, "Update",
+                                    "Update completed\nRebooting...")
+
+            current_exe = sys.executable
+            exe_dir = os.path.dirname(current_exe)
+            subprocess.Popen([current_exe], cwd=exe_dir)
+            QApplication.quit()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Could not update software:\n{e}")
+
+    def check_update_available(self):
+        repo_path = os.path.join(os.path.expanduser("~"), "Desktop", "Ridepulse-Control")
+        try:
+            subprocess.run(["git", "-C", repo_path, "fetch"], check=True, capture_output=True)
+
+            local = subprocess.run(
+                ["git", "-C", repo_path, "rev-parse", "HEAD"],
+                capture_output=True, text=True, check=True
+            ).stdout.strip()
+            upstream = subprocess.run(
+                ["git", "-C", repo_path, "rev-parse", "@{u}"],
+                capture_output=True, text=True, check=True
+            ).stdout.strip()
+
+            if local != upstream:
+                self.update_available_label.setText("Update available!")
+                self.update_available_label.setStyleSheet("color: orange;")
+            else:
+                self.update_available_label.setText("Up-to-date")
+                self.update_available_label.setStyleSheet("color: green;")
+
+        except Exception as e:
+            self.update_available_label.setText("Update check failed")
+            self.update_available_label.setStyleSheet("color: red;")
+            print("Update check error:", e)
     def run_rendering(self):
         try:
-            script_path = os.path.join(os.path.dirname(__file__), "Rendering_boarding", "rendering.exe")
-            subprocess.Popen([sys.executable, script_path])
+            exe_path = os.path.join(
+                os.path.dirname(__file__),
+                "Rendering_boarding",
+                "rendering.exe"
+            )
+
+            if not os.path.exists(exe_path):
+                QMessageBox.critical(self, "Error", f"rendering.exe niet gevonden:\n{exe_path}")
+                return
+            subprocess.Popen(exe_path)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Could not start {script_path}:\n{e}")
+            QMessageBox.critical(self, "Error", f"Kon rendering.exe niet starten:\n{e}")
 
     def update_match_time(self):
         text = self.match_time_input.text().strip()
@@ -1658,7 +1809,7 @@ class ControlPanel(QWidget):
         video_path = os.path.join(os.getcwd(), video_path_lineup, file_name)
 
         if not os.path.exists(video_path):
-            QMessageBox.warning(self, "File not found", f"Could not find: {video_path} ")
+            QMessageBox.warning(self, "File not found", f"Could not find: {video_path}")
             self.lineup_index += 1
             QTimer.singleShot(10, self.play_next_lineup_video)
             return
@@ -1669,15 +1820,27 @@ class ControlPanel(QWidget):
         self.lineup_video_player.play()
         self.display.stack.setCurrentIndex(1)
 
-        def check_duration_and_queue_next():
-            duration = self.lineup_video_player.get_length()
-            if duration > 0:
-                QTimer.singleShot(duration, self.play_next_lineup_video)
-                self.lineup_index += 1
-            else:
-                QTimer.singleShot(10, check_duration_and_queue_next)
+        if self.lineup_mode_auto:
+            def auto_continue():
+                duration = self.lineup_video_player.get_length()
+                if duration > 0:
+                    QTimer.singleShot(duration, lambda: self._auto_advance_lineup())
+                else:
+                    QTimer.singleShot(10, auto_continue)
 
-        QTimer.singleShot(10, check_duration_and_queue_next)
+            QTimer.singleShot(10, auto_continue)
+        else:
+            def freeze_last_frame():
+                if not self.lineup_video_player.is_playing():
+                    self.lineup_video_player.set_pause(1)
+                else:
+                    QTimer.singleShot(100, freeze_last_frame)
+
+            QTimer.singleShot(500, freeze_last_frame)
+
+    def _auto_advance_lineup(self):
+        self.lineup_index += 1
+        self.play_next_lineup_video()
 
     def play_proleague_hymne(self):
         playback = sp.current_playback()
