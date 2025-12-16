@@ -23,6 +23,8 @@
   "timer_margin_bottom": 5,
   "timer_margin_right": 0,
 
+  "time_wissel_visual": 10000,
+
   "controlpanel_display_number": 0,
   "scoreboard_display_number": 2,
   "ledboarding_display_number": 1,
