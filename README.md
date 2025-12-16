@@ -60,6 +60,7 @@ ESC: Exits a text field
   <br /> ✅ 15 minuten timer voor half time => implemented, maar lelijk!
   <br /> ❌ Flash bij switchen tussen video en afbeelding en bij 2 videos na elkaar (sponsor)
   <br /> ✅ Rendering werkt niet, opent nieuwe instantie => Should be resolved
-  
+  <br /> ❌ Gameday wordt uit mediafolder gehaald!!!
+
 # This is still a work in process...
 
