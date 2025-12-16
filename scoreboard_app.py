@@ -30,6 +30,7 @@ CLIENT_ID = "608e84d64a84485988c331ecaed17027"
 CLIENT_SECRET = "a6a2863b966e4997a2213d494177e8e5"
 REDIRECT_URI = "http://127.0.0.1:8888/callback"
 PLAYLIST_URI = "https://open.spotify.com/playlist/07vuLI875maidRM60L6rjV?si=61f5f5015af34261" # default playlist 'Database'
+PLAYERS_FILE = "players.json"
 
 # Connect with api
 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
@@ -85,6 +86,8 @@ timer_margin_top = config["timer_margin_top"]
 timer_margin_left = config["timer_margin_left"]
 timer_margin_bottom = config["timer_margin_bottom"]
 timer_margin_right = config["timer_margin_right"]
+
+time_for_wissel_visual = config["time_wissel_visual"]
 
 # settings displays
 controlpanel_display_number = config["controlpanel_display_number"]
@@ -302,10 +305,27 @@ class ScoreboardDisplay(QWidget):
         self.mededeling_stack.addWidget(self.mededeling_text)
         self.mededeling_container.setLayout(self.mededeling_stack)
 
+        self.wissel_container = QWidget()
+        self.wissel_container.setFixedSize(360, 240)
+        self.wissel_bg = QLabel(self.wissel_container)
+        self.wissel_bg.setGeometry(0, 0, 360, 240)
+        self.wissel_bg.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+
+        self.wissel_in = QLabel(self.wissel_container)
+        self.wissel_in.setGeometry(120, 58, 200, 35)
+        self.wissel_in.setStyleSheet("color: #FFCC12;")
+        self.wissel_in.setAttribute(Qt.WA_TranslucentBackground)
+
+        self.wissel_out = QLabel(self.wissel_container)
+        self.wissel_out.setGeometry(45, 148, 200, 35)
+        self.wissel_out.setStyleSheet("color: #FFFFFF;")
+        self.wissel_out.setAttribute(Qt.WA_TranslucentBackground)
+
         self.stack.addWidget(main_page)  # index 0
         self.stack.addWidget(lineup_page)  # index 1
         self.stack.addWidget(greg_page)  # index 2
         self.stack.addWidget(self.mededeling_container)  # index 3
+        self.stack.addWidget(self.wissel_container)  # index 4
 
         main_layout.addLayout(self.stack)
 
@@ -375,8 +395,6 @@ class ControlPanel(QWidget):
         self.lineup_files = []
         self.top_video_playlist = []
 
-        self.goal_input = QLineEdit()
-
         self.image_timer = QTimer()
         self.image_timer.setSingleShot(True)
         self.image_timer.timeout.connect(self.show_next_sponsor)
@@ -440,11 +458,24 @@ class ControlPanel(QWidget):
 
         self.start_sponsors_loop()
         self.check_update_available()
+        self.players = self.load_players()
 
     def create_button(self, text, callback):
         btn = QPushButton(text)
         btn.clicked.connect(callback)
         return btn
+
+    def load_players(self):
+        if not os.path.exists(PLAYERS_FILE):
+            QMessageBox.warning(self, "File error", "players.json not found")
+            return {}
+
+        try:
+            with open(PLAYERS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            QMessageBox.critical(self, "File error", f"Error while loading players.json:\n{e}")
+            return {}
 
     def _ensure_audio_interface(self):
         if getattr(self, "_audio_endpoint", None) is None:
@@ -708,10 +739,6 @@ class ControlPanel(QWidget):
                 super().keyPressEvent(event)
             except Exception:
                 pass
-
-    def clear_lineup_fields(self):
-        for field in self.lineup_inputs:
-            field.clear()
 
     def _set_active_local_player(self, player: QMediaPlayer):
         self.active_player = player
@@ -978,24 +1005,34 @@ class ControlPanel(QWidget):
         self.lineup_next_btn = QPushButton("Volgende")
         self.lineup_next_btn.clicked.connect(self.lineup_next)
         lineup_layout.addWidget(self.lineup_next_btn)
-        lineup_layout.addWidget(self.create_button("Clear All Fields", self.clear_lineup_fields))
 
         lineup_layout.addWidget(QLabel("Goal Visual"))
+        self.goal_input = QLineEdit()
+        self.goal_input.setPlaceholderText("Goal visual")
         lineup_layout.addWidget(self.goal_input)
         self.goal_input.returnPressed.connect(self.play_goal_video)
 
+        lineup_layout.addWidget(QLabel("Wissel IN - OUT"))
+        self.wissel_in_input = QLineEdit()
+        self.wissel_in_input.setPlaceholderText("IN")
+        self.wissel_out_input = QLineEdit()
+        self.wissel_out_input.setPlaceholderText("OUT")
+        self.wissel_in_input.returnPressed.connect(
+            self.wissel_out_input.setFocus
+        )
+        self.wissel_out_input.returnPressed.connect(
+            self.trigger_wissel
+        )
+        lineup_layout.addWidget(self.wissel_in_input)
+        lineup_layout.addWidget(self.wissel_out_input)
+
         lineup_layout.addWidget(QLabel("Mededeling"))
         self.mededeling_input = QLineEdit()
+        self.mededeling_input.setPlaceholderText("Mededeling")
         self.mededeling_input.returnPressed.connect(
             lambda: self.show_mededeling(self.mededeling_input.text())
         )
         lineup_layout.addWidget(self.mededeling_input)
-
-        lineup_layout.addWidget(self.create_button(
-            "Toon Mededeling",
-            lambda: self.show_mededeling(self.mededeling_input.text())
-        ))
-
         lineup_layout.addWidget(self.create_button(
             "Verberg Mededeling",
             self.hide_mededeling
@@ -1052,17 +1089,17 @@ class ControlPanel(QWidget):
         btn._offset = 2
         btn._desc = "9. Play Pro League Hymne"
         spotify_layout.addWidget(btn)
-        spotify_layout.addWidget(QLabel(""))
         spotify_layout.addWidget(self.create_button("Start Half-Time playlist", self.start_playlist_halftime))
+
+        spotify_layout.addWidget(QLabel(""))
         spotify_layout.addWidget(self.create_button("Start Playlist Winst", self.start_playlist_winst))
         spotify_layout.addWidget(self.create_button("Start Playlist Gelijkspel (Database)", self.start_playlist_database))
         spotify_layout.addWidget(self.create_button("Start Playlist Verlies", self.start_playlist_verlies))
-        spotify_layout.addWidget(self.create_button("MUZIEK UIT BIJ SPIONKOP", self.dummy_button))
         spotify_layout.addWidget(self.create_button("Start EUROMIR", self.start_euromir))
 
         spotify_layout.addWidget(QLabel("LED boarding"))
         spotify_layout.addWidget(self.create_button("Toon Main", lambda: self.set_loop_video(os.path.join("Rendering_boarding", "Main.mp4"))))
-        spotify_layout.addWidget(self.create_button("Toon Gameday", lambda: self.set_loop_video(os.path.join("Media", "Gameday.mp4"))))
+        spotify_layout.addWidget(self.create_button("Toon Gameday", lambda: self.set_loop_video(os.path.join("Rendering_boarding", "Gameday.mp4"))))
         spotify_layout.addWidget(self.create_button("Reset boarding", lambda: self.reset_loop_video(os.path.join("Media", "default.jpg"))))
 
         loop_video_layout = QVBoxLayout()
@@ -1122,12 +1159,74 @@ class ControlPanel(QWidget):
         else:
             self.lineup_mode_btn.setText("Mode: Handmatig")
 
+    def trigger_wissel(self):
+        nummer_in = self.wissel_in_input.text().strip()
+        nummer_out = self.wissel_out_input.text().strip()
+
+        if not nummer_in or not nummer_out:
+            QMessageBox.warning(self, "Wissel", "Fill in 2 player numbers!")
+            return
+
+        self.show_wissel_by_number(nummer_in, nummer_out)
+        QTimer.singleShot(time_for_wissel_visual, self.hide_wissel)
+        self.wissel_in_input.clear()
+        self.wissel_out_input.clear()
+
     def lineup_next(self):
         if self.lineup_mode_auto:
             return
 
         self.lineup_index += 1
         self.play_next_lineup_video()
+
+    def show_wissel(self, speler_in, speler_out):
+        font_path = os.path.join("Fonts", "LEMONMILK-MediumItalic.otf")
+        font_id = QFontDatabase.addApplicationFont(font_path)
+        font_family = (
+            "Arial" if font_id == -1
+            else QFontDatabase.applicationFontFamilies(font_id)[0]
+        )
+
+        font = QFont(font_family, 10, QFont.Bold)
+
+        bg_path = os.path.join("Media", "wissel.jpg")
+        if os.path.exists(bg_path):
+            pixmap = QPixmap(bg_path).scaled(
+                360, 240,
+                Qt.IgnoreAspectRatio,
+                Qt.SmoothTransformation
+            )
+            self.display.wissel_bg.setPixmap(pixmap)
+        else:
+            self.display.wissel_bg.setText("[wissel.jpg not found]")
+
+        self.display.wissel_in.setFont(font)
+        self.display.wissel_out.setFont(font)
+
+        self.display.wissel_in.setText(speler_in)
+        self.display.wissel_out.setText(speler_out)
+        self.display.stack.setCurrentIndex(4)
+        QTimer.singleShot(8000, self.hide_wissel)
+
+    def hide_wissel(self):
+        self.display.stack.setCurrentIndex(0)
+
+    def get_player_name(self, rugnummer):
+        rugnummer = str(rugnummer).strip()
+
+        player = self.players.get(rugnummer)
+        if not player:
+            QMessageBox.critical(self, "Error", f"Could not find player:\n{rugnummer}")
+
+            return f"#{rugnummer}"
+
+        return player.get("naam", f"#{rugnummer}")
+
+    def show_wissel_by_number(self, nummer_in, nummer_out):
+        speler_in = self.get_player_name(nummer_in)
+        speler_out = self.get_player_name(nummer_out)
+
+        self.show_wissel(speler_in, speler_out)
 
     def show_mededeling(self, text):
         font_path = os.path.join("fonts", "LEMONMILK-MediumItalic.otf")
@@ -1144,8 +1243,8 @@ class ControlPanel(QWidget):
             )
             self.display.mededeling_bg.setPixmap(pixmap)
         else:
-            self.display.mededeling_bg.setText("[mededeling.jpg niet gevonden]")
-
+            QMessageBox.critical(self, "Error", f"Could not find mededeling.jpg:\n")
+            return
         self.display.mededeling_text.setFont(QFont(font_family, 15, QFont.Bold))
         self.display.mededeling_text.setAlignment(Qt.AlignCenter)
         self.display.mededeling_text.setWordWrap(True)
@@ -1154,6 +1253,8 @@ class ControlPanel(QWidget):
 
     def hide_mededeling(self):
         self.display.stack.setCurrentIndex(0)
+        self.mededeling_input.clear()
+
 
     def update_software(self):
         try:
@@ -1179,7 +1280,7 @@ class ControlPanel(QWidget):
             QMessageBox.critical(self, "Error", f"Could not update software:\n{e}")
 
     def check_update_available(self):
-        repo_path = os.path.join(os.path.expanduser("~"), "Desktop", "Ridepulse-Control")
+        repo_path = os.path.join(os.path.expanduser("~"), "Desktop", "Ridepulse-control")
         try:
             subprocess.run(["git", "-C", repo_path, "fetch"], check=True, capture_output=True)
 
@@ -1205,11 +1306,7 @@ class ControlPanel(QWidget):
             print("Update check error:", e)
     def run_rendering(self):
         try:
-            exe_path = os.path.join(
-                os.path.dirname(__file__),
-                "Rendering_boarding",
-                "rendering.exe"
-            )
+            exe_path = (os.path.join("Rendering_boarding", "rendering.exe"))
 
             if not os.path.exists(exe_path):
                 QMessageBox.critical(self, "Error", f"rendering.exe niet gevonden:\n{exe_path}")
@@ -1437,6 +1534,8 @@ class ControlPanel(QWidget):
         self.spotify_timer.start()
 
     def start_playlist_database(self):
+        self.timer.stop()
+        self.toggle_timer_btn.setText("Start Match")
         did = self.get_active_device_id()
         if not did:
             QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
@@ -1451,6 +1550,8 @@ class ControlPanel(QWidget):
         self.spotify_timer.start()
 
     def start_playlist_halftime(self):
+        self.timer.stop()
+        self.toggle_timer_btn.setText("Start Match")
         did = self.get_active_device_id()
         if not did:
             QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
@@ -1497,6 +1598,8 @@ class ControlPanel(QWidget):
         self.spotify_timer.start()
 
     def start_playlist_winst(self):
+        self.timer.stop()
+        self.toggle_timer_btn.setText("Start Match")
         did = self.get_active_device_id()
         if not did:
             QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
@@ -1511,6 +1614,8 @@ class ControlPanel(QWidget):
         self.spotify_timer.start()
 
     def start_playlist_verlies(self):
+        self.timer.stop()
+        self.toggle_timer_btn.setText("Start Match")
         did = self.get_active_device_id()
         if not did:
             QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
@@ -1803,6 +1908,8 @@ class ControlPanel(QWidget):
     def play_next_lineup_video(self):
         if self.lineup_index >= len(self.lineup_files):
             self.hide_lineup_visual()
+            for field in self.lineup_inputs:
+                field.clear()
             return
 
         file_name = self.lineup_files[self.lineup_index]
@@ -1839,6 +1946,7 @@ class ControlPanel(QWidget):
             QTimer.singleShot(500, freeze_last_frame)
 
     def _auto_advance_lineup(self):
+
         self.lineup_index += 1
         self.play_next_lineup_video()
 
@@ -1857,7 +1965,6 @@ class ControlPanel(QWidget):
             QTimer.singleShot(4000,after_fade_out)
         else:
             after_fade_out()
-
 
     def play_goal_video(self):
         filename = self.goal_input.text().strip()
@@ -1881,7 +1988,6 @@ class ControlPanel(QWidget):
         self.lineup_video_player.audio_set_mute(True)
         self.lineup_video_player.play()
         QTimer.singleShot(100, lambda: self.display.stack.setCurrentIndex(1))
-
 
         def check_end():
             if not self.lineup_video_player.is_playing():
