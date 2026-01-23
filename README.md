@@ -41,26 +41,24 @@ ESC: Exits a text field
   <br /> ✅ Opening other necessary software should work, ledset needs to open with admin rights.
   <br /> ✅ Line up can be put in, to start the cursor needs to be in the last box and then enter needs to be pressed.
   <br /> ✅ Import en export mogelijk van sponsoren voor het scorebord mogelijk gemaakt vanuit controlpanel, bij het verwijderen worden sponsors gearchiveerd naar Scorebord_archive.
-  <br /> ✅ Startuur van de match kan ingegeven worden bovenaan. Dit update de verschillende timings van audio.
+  <br /> ✅ Starting time of the match can be put in via the box, this updates the ques for the audio.
   <br /> ✅ Most of the functions can be executed with different keyboard buttons.
-  <br /> ✅ Visual of Greg is being displayed automaticly in min. 4, this time in right resolution.
-  <br /> ✅ It is possible to render the different loops in the software..
-  <br /> ✅ Fade in/out function excists.
+  <br /> ✅ Visual of Greg is being displayed automatically in min. 4, this time in right resolution.
+  <br /> ✅ It is possible to render the different loops in the software.
+  <br /> ✅ Fade in/out function exists.
   <br /> ✅ Config can be edited by clicking a button in the software, this will open Notepad.
+  <br /> ✅ 15 minute timer for half time counts down when the playlist is started.
   <br /> ❌ Implement intern media circuit (F5-F8)
   <br /> ❌ Autoplay alle muziekbestanden-buttons?
+  <br /> ❌ Extra tijd visuals?
+
 
 
 # Bugs:
 ✅ LED Boarding feed sluit niet goed af. => resolved.
   <br /> ❗ De top playlist klikt niet in het juiste label, stop werkt totaal niet tho (opent ook een ander vlc window ofzo). => Top video playlsit is uit de code gehaald. Kunnen nu evt greg label gebruiken?
   <br /> ❌ Makkelijkere manier vinden om presets toe te voegen. (Mss via config file?)
-  <br /> ✅ RESET NAAR STACK VAN SCOREBORD IPV LINEUP OF GOAL KNOP!! + BUG ALS GREG AFGELOPEN IS! => Bug has been resolved. 
-  <br /> ❗ Extra tijd visuals?
-  <br /> ✅ 15 minuten timer voor half time => implemented, maar lelijk!
   <br /> ❌ Flash bij switchen tussen video en afbeelding en bij 2 videos na elkaar (sponsor)
-  <br /> ✅ Rendering werkt niet, opent nieuwe instantie => Should be resolved
-  <br /> ❌ Gameday wordt uit mediafolder gehaald!!!
 
 # This is still a work in process...
 
