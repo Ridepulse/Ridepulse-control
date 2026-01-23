@@ -1,5 +1,4 @@
 # Sporting
-
 All in one control software for home-matches at Daknam 
 Combines previous software packages into one. 
 
