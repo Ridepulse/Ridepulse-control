@@ -408,7 +408,7 @@ class ControlPanel(QWidget):
         self.media_timer = QTimer()
         self.media_timer.timeout.connect(self.update_remaining_time)
         self.time_remaining_label = QLabel("Time remaining: --:--")
-        self.time_remaining_label.setStyleSheet("color: #463A8F; font-size: 20px; padding: 5px;")
+        self.time_remaining_label.setStyleSheet("color: #463A8F; font-size: 20px; padding: 4px;")
 
         self.goal_sound = QMediaPlayer()
         self.goal_sound.setMedia(QMediaContent(QUrl.fromLocalFile(os.path.abspath(GOAL_SOUND))))
@@ -560,12 +560,12 @@ class ControlPanel(QWidget):
         try:
             playback = sp.current_playback()
             if playback and playback.get("is_playing"):
-                self.spotify_toggle_btn.setText("Pause Spotify")
+                self.spotify_toggle_btn.setText("Pause")
             else:
-                self.spotify_toggle_btn.setText("Play Spotify")
+                self.spotify_toggle_btn.setText("Play")
         except Exception:
             try:
-                self.spotify_toggle_btn.setText("Play Spotify")
+                self.spotify_toggle_btn.setText("Play")
             except Exception:
                 pass
 
@@ -699,16 +699,10 @@ class ControlPanel(QWidget):
                 self.reset_timer_tweedehelft()
                 return
             if key == Qt.Key_F9:
-                try:
-                    self.set_loop_video("Main.mp4")
-                except Exception:
-                    self.set_loop_video(os.path.join("Media", "Main.mp4"))
+                self.set_loop_video(os.path.join("Rendering_boarding", "Main.mp4"))
                 return
             if key == Qt.Key_F10:
-                try:
-                    self.set_loop_video("Gameday.mp4")
-                except Exception:
-                    self.set_loop_video(os.path.join("Media", "Gameday.mp4"))
+                self.set_loop_video(os.path.join("Rendering_boarding", "Gameday.mp4"))
                 return
             if key == Qt.Key_F11:
                 self.reset_loop_video(os.path.join("Media", "default.jpg"))
@@ -861,6 +855,7 @@ class ControlPanel(QWidget):
             return
 
         self.loop_video_path = video_path
+        self.loop_list_player.stop()
         media_list = self.loop_instance.media_list_new([video_path])
         self.loop_list_player.set_media_list(media_list)
         try:
@@ -907,17 +902,19 @@ class ControlPanel(QWidget):
                 background-color: #1e1e1e;
                 color: #dcdcdc;
                 font-family: 'Segoe UI';
-                font-size: 14px;
+                font-size: 15px;
             }
             QLineEdit, QListWidget {
                 background-color: #2d2d30;
                 border: 1px solid #444;
                 padding: 4px;
+                border-radius: 4px;
+
             }
             QPushButton {
                 background-color: #3a3a3a;
                 border: 1px solid #555;
-                padding: 6px;
+                padding: 4px;
                 border-radius: 4px;
             }
             QPushButton:hover {
@@ -928,8 +925,8 @@ class ControlPanel(QWidget):
             }
             QLabel {
                 font-weight: bold;
-                margin-top: 6px;
-                font-size: 18px;
+                margin-top: 4px;
+                font-size: 20px;
             }
         """)
 
@@ -937,173 +934,184 @@ class ControlPanel(QWidget):
         main_layout.setSpacing(20)
         main_layout.setContentsMargins(20, 20, 20, 20)
 
-        scoreboard_layout = QVBoxLayout()
-        scoreboard_layout.setSpacing(10)
-
-        def labeled_input(label_text, default_text=""):
-            layout = QVBoxLayout()
-            label = QLabel(label_text)
-            input_field = QLineEdit(default_text)
-            layout.addWidget(label)
-            layout.addWidget(input_field)
-            return layout, input_field
-
-        name1_layout, self.team1_name = labeled_input("Team 1", "SPORTING")
-        scoreboard_layout.addLayout(name1_layout)
+        column_1 = QVBoxLayout()
+        column_1.setSpacing(10)
+        column_1.addWidget(QLabel("Team 1"))
+        self.team1_name = QLineEdit("SPORTING")
         self.team1_name.returnPressed.connect(self.update_home_name)
+        column_1.addWidget(self.team1_name)
 
-        scoreboard_layout.addWidget(
+        home_score_layout = QHBoxLayout()
+        home_score_layout.addWidget(
             self.create_button("Goal Home", lambda: self.add_sporting_goal(self.display.sporting_score)))
-        scoreboard_layout.addWidget(
+        home_score_layout.addWidget(
             self.create_button("-1 score", lambda: self.lower_goal(self.display.sporting_score)))
+        column_1.addLayout(home_score_layout)
 
-        name2_layout, self.team2_name = labeled_input("Team 2", "")
-        scoreboard_layout.addLayout(name2_layout)
+        column_1.addWidget(QLabel("Team 2"))
+        self.team2_name = QLineEdit()
+        self.team2_name.setPlaceholderText("DE POTTENSTAMPERS")
         self.team2_name.returnPressed.connect(self.update_visitor_name)
+        column_1.addWidget(self.team2_name)
 
-        scoreboard_layout.addWidget(
+        visitors_score_layout = QHBoxLayout()
+        visitors_score_layout.addWidget(
             self.create_button("Goal Visitors", lambda: self.add_visitor_goal(self.display.visitor_score)))
-        scoreboard_layout.addWidget(
+        visitors_score_layout.addWidget(
             self.create_button("-1 score", lambda: self.lower_goal(self.display.visitor_score)))
+        column_1.addLayout(visitors_score_layout)
 
-        timer_layout, self.timer_input = labeled_input("Timer (MM:SS)", "00:00")
-        self.timer_input.returnPressed.connect(self.update_timer_value)
-        scoreboard_layout.addLayout(timer_layout)
+        column_1.addWidget(QLabel("Clock"))
+        clock_input_layout = QHBoxLayout()
+        self.clock_input = QLineEdit()
+        self.clock_input.setPlaceholderText("MM:SS")
+        self.clock_input.returnPressed.connect(self.update_timer_value)
+        clock_input_layout.addWidget(self.clock_input)
+        clock_input_layout.addWidget(self.create_button("  Update  ", self.update_timer_value))
+        column_1.addLayout(clock_input_layout)
 
-        self.toggle_timer_btn = QPushButton("Start Match")
+        self.toggle_timer_btn = QPushButton("Start Clock")
         self.toggle_timer_btn.clicked.connect(self.toggle_timer)
-        scoreboard_layout.addWidget(self.toggle_timer_btn)
-        scoreboard_layout.addWidget(self.create_button("Update Timer", self.update_timer_value))
-        scoreboard_layout.addWidget(self.create_button("Reset (1e helft)", self.reset_timer_eerstehelft))
-        scoreboard_layout.addWidget(self.create_button("Reset (2e helft)", self.reset_timer_tweedehelft))
-        scoreboard_layout.addWidget(QLabel(""))
-        scoreboard_layout.addWidget(self.create_button("Add Sponsors", self.add_sponsor_files))
-        scoreboard_layout.addWidget(self.create_button("Remove Sponsors", self.remove_sponsor_files))
-        scoreboard_layout.addWidget(self.create_button("Start Sponsors", self.start_sponsors_loop))
-        scoreboard_layout.addWidget(QLabel(""))
-        scoreboard_layout.addWidget(self.create_button("Exit", self.exit_application))
+        column_1.addWidget(self.toggle_timer_btn)
+        timer_resets_layout = QHBoxLayout()
+        timer_resets_layout.addWidget(self.create_button("Reset (1e helft)", self.reset_timer_eerstehelft))
+        timer_resets_layout.addWidget(self.create_button("Reset (2e helft)", self.reset_timer_tweedehelft))
+        column_1.addLayout(timer_resets_layout)
 
-        lineup_layout = QVBoxLayout()
-        lineup_layout.setSpacing(10)
-        lineup_layout.addWidget(QLabel("Line-up Players"))
-        for i in range(13):
-            line_input = QLineEdit()
-            self.lineup_inputs.append(line_input)
-            lineup_layout.addWidget(line_input)
-        for i, line_input in enumerate(self.lineup_inputs):
-            if i < len(self.lineup_inputs) - 1:
-                line_input.returnPressed.connect(self.lineup_inputs[i + 1].setFocus)
-            else:
-                line_input.returnPressed.connect(self.start_lineup)
-
-        lineup_layout.addWidget(self.create_button("Start Line-up Sequence", self.start_lineup))
-
-        self.lineup_mode_btn = QPushButton("Mode: Automatisch")
-        self.lineup_mode_btn.clicked.connect(self.toggle_lineup_mode)
-        lineup_layout.addWidget(self.lineup_mode_btn)
-
-        self.lineup_next_btn = QPushButton("Volgende")
-        self.lineup_next_btn.clicked.connect(self.lineup_next)
-        lineup_layout.addWidget(self.lineup_next_btn)
-
-        lineup_layout.addWidget(QLabel("Goal Visual"))
-        self.goal_input = QLineEdit()
-        self.goal_input.setPlaceholderText("Goal visual")
-        lineup_layout.addWidget(self.goal_input)
-        self.goal_input.returnPressed.connect(self.play_goal_video)
-
-        lineup_layout.addWidget(QLabel("Wissel IN - OUT"))
-        self.wissel_in_input = QLineEdit()
-        self.wissel_in_input.setPlaceholderText("IN")
-        self.wissel_out_input = QLineEdit()
-        self.wissel_out_input.setPlaceholderText("OUT")
-        self.wissel_in_input.returnPressed.connect(
-            self.wissel_out_input.setFocus
-        )
-        self.wissel_out_input.returnPressed.connect(
-            self.trigger_wissel
-        )
-        lineup_layout.addWidget(self.wissel_in_input)
-        lineup_layout.addWidget(self.wissel_out_input)
-
-        lineup_layout.addWidget(QLabel("Mededeling"))
-        self.mededeling_input = QLineEdit()
-        self.mededeling_input.setPlaceholderText("Mededeling")
-        self.mededeling_input.returnPressed.connect(
-            lambda: self.show_mededeling(self.mededeling_input.text())
-        )
-        lineup_layout.addWidget(self.mededeling_input)
-        lineup_layout.addWidget(self.create_button(
-            "Verberg Mededeling",
-            self.hide_mededeling
-        ))
-
-        spotify_layout = QVBoxLayout()
-        spotify_layout.setSpacing(10)
-        timeupdate_layout = QVBoxLayout()
-        timeupdate_layout.setSpacing(10)
-        timeupdate_layout.addWidget(QLabel("Starting Time Match"))
+        column_1.addWidget(QLabel("Starting Time Match"))
         self.match_time_input = QLineEdit("20:00")
         self.match_time_input.returnPressed.connect(self.update_match_time)
-        timeupdate_layout.addWidget(self.match_time_input)
-        spotify_layout.addLayout(timeupdate_layout)
-        spotify_layout.addWidget(QLabel("Audio"))
-        btn = self.create_button("1. T-60' - Start Database Playlist", self.start_playlist_database)
-        btn._offset = 60
-        btn._desc = "1. Start Database Playlist"
-        spotify_layout.addWidget(btn)
+        column_1.addWidget(self.match_time_input)
 
-        btn = self.create_button("2. T-30' - Start Pre-game Playlist (tot I Gotta Feeling)", self.start_playlist_pregame)
+        column_1.addWidget(QLabel("Scorebord Sponsors"))
+        manage_sponsors_layout = QHBoxLayout()
+        manage_sponsors_layout.addWidget(self.create_button("Add", self.add_sponsor_files))
+        manage_sponsors_layout.addWidget(self.create_button("Remove", self.remove_sponsor_files))
+        column_1.addLayout(manage_sponsors_layout)
+        column_1.addWidget(self.create_button("Manual Start", self.start_sponsors_loop))
+        column_1.addWidget(QLabel("Shutdown"))
+        column_1.addWidget(self.create_button("Exit", self.exit_application))
+
+        column_2 = QVBoxLayout()
+        column_2.setSpacing(10)
+        column_2.addWidget(QLabel("Local Audio"))
+        column_2.addWidget(self.create_button("Stop All Local Media", self.stop_all_local_media))
+        fade_layout = QHBoxLayout()
+        fade_layout.addWidget(self.create_button("Fade In", self.fade_in_volume))
+        fade_layout.addWidget(self.create_button("Fade Out", self.fade_out_volume))
+        column_2.addLayout(fade_layout)
+
+        column_2.addWidget(QLabel("Spotify"))
+        self.spotify_toggle_btn = QPushButton("Play")
+        self.spotify_toggle_btn.clicked.connect(self.toggle_spotify)
+        column_2.addWidget(self.spotify_toggle_btn)
+        next_previous_layout = QHBoxLayout()
+        next_previous_layout.addWidget(self.create_button("Previous", self.spotify_previous))
+        next_previous_layout.addWidget(self.create_button("Next", self.spotify_next))
+        column_2.addLayout(next_previous_layout)
+
+        column_2.addWidget(QLabel("LED Boarding"))
+        boarding_layout = QHBoxLayout()
+        boarding_layout.addWidget(
+            self.create_button("Main", lambda: self.set_loop_video(os.path.join("Rendering_boarding", "Main.mp4"))))
+        boarding_layout.addWidget(self.create_button("Gameday", lambda: self.set_loop_video(
+            os.path.join("Rendering_boarding", "Gameday.mp4"))))
+        column_2.addLayout(boarding_layout)
+        column_2.addWidget(
+            self.create_button("RESET", lambda: self.reset_loop_video(os.path.join("Media", "default.jpg"))))
+        column_2.addWidget(self.create_button("Render New Loop", self.run_rendering))
+
+        column_2.addWidget(QLabel("Goal Visual"))
+        self.goal_input = QLineEdit()
+        self.goal_input.setPlaceholderText("## GOALMAKER")
+        column_2.addWidget(self.goal_input)
+        self.goal_input.returnPressed.connect(self.play_goal_video)
+
+        column_2.addWidget(QLabel("Player IN - OUT"))
+        in_out_layout = QHBoxLayout()
+        self.wissel_in_input = QLineEdit()
+        self.wissel_in_input.setPlaceholderText("## IN")
+        self.wissel_out_input = QLineEdit()
+        self.wissel_out_input.setPlaceholderText("## OUT")
+        self.wissel_in_input.returnPressed.connect(self.wissel_out_input.setFocus)
+        self.wissel_out_input.returnPressed.connect(self.trigger_wissel)
+        in_out_layout.addWidget(self.wissel_in_input)
+        in_out_layout.addWidget(self.wissel_out_input)
+        column_2.addLayout(in_out_layout)
+        self.autist_input = QLineEdit()
+        self.autist_input.setPlaceholderText("Dit bestaat alleen voor het uiterlijk #symmetrie #autist")
+        column_2.addWidget(self.autist_input)
+
+        column_2.addWidget(QLabel("Announcement"))
+        announcement_layout = QHBoxLayout()
+        self.mededeling_input = QLineEdit()
+        self.mededeling_input.setPlaceholderText("ANNOUNCEMENT")
+        self.mededeling_input.returnPressed.connect(lambda: self.show_mededeling(self.mededeling_input.text()))
+        announcement_layout.addWidget(self.mededeling_input)
+        announcement_layout.addWidget(self.create_button("   Hide   ",self.hide_mededeling))
+        column_2.addLayout(announcement_layout)
+
+        column_3 = QVBoxLayout()
+        column_3.setSpacing(10)
+        column_3.addWidget(QLabel("Audio - starts when pushed"))
+        btn = self.create_button("1. T-60' - Database Playlist", self.start_playlist_database)
+        btn._offset = 60
+        btn._desc = "1. Database Playlist"
+        column_3.addWidget(btn)
+
+        btn = self.create_button("2. T-30' - Pre-game Playlist", self.start_playlist_pregame)
         btn._offset = 30
-        btn._desc = "2. Start Pre-game Playlist (tot I Gotta Feeling)"
-        spotify_layout.addWidget(btn)
+        btn._desc = "2. Pre-game Playlist"
+        column_3.addWidget(btn)
 
         btn = self.create_button("3. T-20' - OMROEP: Opstelling tegenstander", self.dummy_button)
         btn._offset = 20
         btn._desc = "3. OMROEP: Opstelling tegenstander"
-        spotify_layout.addWidget(btn)
+        column_3.addWidget(btn)
 
-        btn = self.create_button("4. T-18' - Start Baila de Gasolina (ATCS)", self.start_baila)
+        btn = self.create_button("4. T-18' - Baila de Gasolina (ATCS)", self.start_baila)
         btn._offset = 18
-        btn._desc = "4. Start Baila de Gasolina (ATCS)"
-        spotify_layout.addWidget(btn)
+        btn._desc = "4. Baila de Gasolina (ATCS)"
+        column_3.addWidget(btn)
 
-        btn = self.create_button("5. T-15' - Start 10' Mixtape", self.start_pregame_mixtape)
+        btn = self.create_button("5. T-15' - 10' Mixtape", self.start_pregame_mixtape)
         btn._offset = 15
-        btn._desc = "5. Start 10' Mixtape"
-        spotify_layout.addWidget(btn)
+        btn._desc = "5. 10' Mixtape"
+        column_3.addWidget(btn)
 
         btn = self.create_button("6. T-07' - OMROEP: Opstelling Sporting", self.dummy_button)
         btn._offset = 7
         btn._desc = "6. OMROEP: Opstelling Sporting"
-        spotify_layout.addWidget(btn)
+        column_3.addWidget(btn)
 
-        spotify_layout.addWidget(self.create_button("7. Indien Nodig - Start Synrise (07:35)", self.start_synrise))
-        spotify_layout.addWidget(QLabel(""))
-        btn = self.create_button("8. T-5' - Start Countdown (na signaal steward)", self.start_countdown)
+        column_3.addWidget(self.create_button("7. Indien Nodig - Synrise (07:35)", self.start_synrise))
+        column_3.addWidget(QLabel(""))
+        btn = self.create_button("8. T-5' - Countdown (na signaal steward)", self.start_countdown)
         btn._offset = 5
-        btn._desc = "8. Start Countdown (na signaal steward)"
-        spotify_layout.addWidget(btn)
+        btn._desc = "8. Countdown (na signaal steward)"
+        column_3.addWidget(btn)
 
-        btn = self.create_button("9. T-2' - Play Pro League Hymne", self.play_proleague_hymne)
+        btn = self.create_button("9. T-2' - Pro League Hymne", self.play_proleague_hymne)
         btn._offset = 2
-        btn._desc = "9. Play Pro League Hymne"
-        spotify_layout.addWidget(btn)
-        spotify_layout.addWidget(self.create_button("Start Half-Time playlist", self.start_playlist_halftime))
+        btn._desc = "9. Pro League Hymne"
+        column_3.addWidget(btn)
 
-        spotify_layout.addWidget(QLabel(""))
-        spotify_layout.addWidget(self.create_button("Start Playlist Winst", self.start_playlist_winst))
-        spotify_layout.addWidget(self.create_button("Start Playlist Gelijkspel (Database)", self.start_playlist_database))
-        spotify_layout.addWidget(self.create_button("Start Playlist Verlies", self.start_playlist_verlies))
-        spotify_layout.addWidget(self.create_button("Start EUROMIR", self.start_euromir))
+        column_3.addWidget(QLabel(""))
+        column_3.addWidget(self.create_button("Half-Time", self.start_playlist_halftime))
+        winst_verlies_layout = QHBoxLayout()
+        winst_verlies_layout.addWidget(self.create_button("Playlist Winst", self.start_playlist_winst))
+        winst_verlies_layout.addWidget(self.create_button("Playlist Verlies", self.start_playlist_verlies))
+        column_3.addLayout(winst_verlies_layout)
+        column_3.addWidget(self.create_button("Playlist Gelijkspel (Database)", self.start_playlist_database))
+        column_3.addWidget(self.create_button("EUROMIR", self.start_euromir))
 
-        spotify_layout.addWidget(QLabel("LED boarding"))
-        spotify_layout.addWidget(self.create_button("Toon Main", lambda: self.set_loop_video(os.path.join("Rendering_boarding", "Main.mp4"))))
-        spotify_layout.addWidget(self.create_button("Toon Gameday", lambda: self.set_loop_video(os.path.join("Rendering_boarding", "Gameday.mp4"))))
-        spotify_layout.addWidget(self.create_button("Reset boarding", lambda: self.reset_loop_video(os.path.join("Media", "default.jpg"))))
+        column_3.addWidget(QLabel("Other Software"))
+        column_3.addWidget(self.create_button("Open Spotify", self.open_spotify_app))
+        column_3.addWidget(self.create_button("Open LedSet", self.open_ledset_app))
+        column_3.addWidget(self.create_button("Open Config File", self.open_config_file))
 
-        loop_video_layout = QVBoxLayout()
-        loop_video_layout.setSpacing(10)
+        column_4 = QVBoxLayout()
+        column_4.setSpacing(10)
         logo_path = os.path.join("Media", "logo.png")
         self.logo_small = QLabel()
         self.logo_small.setAlignment(Qt.AlignCenter)
@@ -1115,41 +1123,54 @@ class ControlPanel(QWidget):
         else:
             self.logo_small.setText("[logo.png not found]")
             self.logo_small.setStyleSheet("color: #777; font-size: 12px;")
-        loop_video_layout.addWidget(self.logo_small, alignment=Qt.AlignCenter)
-        loop_video_layout.addWidget(self.time_remaining_label)
-        loop_video_layout.addWidget(QLabel("Local Audio Controls"))
-        loop_video_layout.addWidget(self.create_button("Stop All Local Media", self.stop_all_local_media))
-        loop_video_layout.addWidget(self.create_button("Fade In", self.fade_in_volume))
-        loop_video_layout.addWidget(self.create_button("Fade Out", self.fade_out_volume))
+        column_4.addWidget(self.logo_small, alignment=Qt.AlignCenter)
+        column_4.addWidget(self.time_remaining_label)
 
-        loop_video_layout.addWidget(QLabel("Spotify Controls"))
-        self.spotify_toggle_btn = QPushButton("Play Spotify")
-        self.spotify_toggle_btn.clicked.connect(self.toggle_spotify)
-        loop_video_layout.addWidget(self.spotify_toggle_btn)
-        loop_video_layout.addWidget(self.create_button("Next Spotify Song", self.spotify_next))
-        loop_video_layout.addWidget(self.create_button("Previous Spotify Song", self.spotify_previous))
-        loop_video_layout.addWidget(QLabel("Other Software"))
-        update_btn = QPushButton("Update Software (BETA!)")
+        column_4.addWidget(QLabel("Line-up Visuals"))
+        for i in range(0, 14, 2):
+            row_layout = QHBoxLayout()
+            input1 = QLineEdit()
+            self.lineup_inputs.append(input1)
+            row_layout.addWidget(input1)
+            input2 = QLineEdit()
+            self.lineup_inputs.append(input2)
+            row_layout.addWidget(input2)
+
+            column_4.addLayout(row_layout)
+
+        for i, line_input in enumerate(self.lineup_inputs):
+            if i < len(self.lineup_inputs) - 1:
+                line_input.returnPressed.connect(self.lineup_inputs[i + 1].setFocus)
+            else:
+                line_input.returnPressed.connect(self.start_lineup)
+
+        column_4.addWidget(self.create_button("Start Line-up Visuals", self.start_lineup))
+
+        self.lineup_mode_btn = QPushButton("Mode: Automatisch")
+        self.lineup_mode_btn.clicked.connect(self.toggle_lineup_mode)
+        column_4.addWidget(self.lineup_mode_btn)
+
+        self.lineup_next_btn = QPushButton("Next (Manual)")
+        self.lineup_next_btn.clicked.connect(self.lineup_next)
+        column_4.addWidget(self.lineup_next_btn)
+
+        self.update_available_label = QLabel("Patat")
+        self.update_available_label.setStyleSheet("color: purple;")
+        column_4.addWidget(self.update_available_label)
+        update_btn = QPushButton("Update Software (Werkt niet!)")
         update_btn.clicked.connect(self.update_software)
-        loop_video_layout.addWidget(update_btn)
-        self.update_available_label = QLabel("Up-to-date")
-        self.update_available_label.setStyleSheet("color: green;")
-        loop_video_layout.addWidget(self.update_available_label)
-        loop_video_layout.addWidget(self.create_button("Open Spotify", self.open_spotify_app))
-        loop_video_layout.addWidget(self.create_button("Open LedSet", self.open_ledset_app))
-        loop_video_layout.addWidget(self.create_button("Open Config File", self.open_config_file))
-        loop_video_layout.addWidget(self.create_button("Render New Loop", self.run_rendering))
+        column_4.addWidget(update_btn)
 
-        main_layout.addLayout(scoreboard_layout, 1)
-        main_layout.addLayout(lineup_layout, 1)
-        main_layout.addLayout(spotify_layout, 1)
-        main_layout.addLayout(loop_video_layout, 1)
+        main_layout.addLayout(column_1, 1)
+        main_layout.addLayout(column_2, 1)
+        main_layout.addLayout(column_3, 1)
+        main_layout.addLayout(column_4, 1)
 
         self.setLayout(main_layout)
         self.setFocusPolicy(Qt.StrongFocus)
         self.setFocus()
         self.update_spotify_button_text()
-     #   self.is_fullscreen = True   niet gebruiken! anders wordt taakbalk genegeerd.
+        #self.is_fullscreen = True   niet gebruiken! anders wordt taakbalk genegeerd.
 
     def toggle_lineup_mode(self):
         self.lineup_mode_auto = not self.lineup_mode_auto
@@ -1171,6 +1192,7 @@ class ControlPanel(QWidget):
         QTimer.singleShot(time_for_wissel_visual, self.hide_wissel)
         self.wissel_in_input.clear()
         self.wissel_out_input.clear()
+        self.wissel_out_input.clearFocus()
 
     def lineup_next(self):
         if self.lineup_mode_auto:
@@ -1187,7 +1209,7 @@ class ControlPanel(QWidget):
             else QFontDatabase.applicationFontFamilies(font_id)[0]
         )
 
-        font = QFont(font_family, 10, QFont.Bold)
+        font = QFont(font_family, 16, QFont.Bold)
 
         bg_path = os.path.join("Media", "wissel.jpg")
         if os.path.exists(bg_path):
@@ -1330,7 +1352,7 @@ class ControlPanel(QWidget):
 
         except Exception:
             QMessageBox.critical(self, "Invalid Format", "Please enter HH:MM")
-
+        self.match_time_input.clearFocus()
 
     def play_with_timer(self, player):
         player.stop()
@@ -1535,7 +1557,7 @@ class ControlPanel(QWidget):
 
     def start_playlist_database(self):
         self.timer.stop()
-        self.toggle_timer_btn.setText("Start Match")
+        self.toggle_timer_btn.setText("Start Clock")
         did = self.get_active_device_id()
         if not did:
             QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
@@ -1551,7 +1573,7 @@ class ControlPanel(QWidget):
 
     def start_playlist_halftime(self):
         self.timer.stop()
-        self.toggle_timer_btn.setText("Start Match")
+        self.toggle_timer_btn.setText("Start Clock")
         did = self.get_active_device_id()
         if not did:
             QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
@@ -1599,7 +1621,7 @@ class ControlPanel(QWidget):
 
     def start_playlist_winst(self):
         self.timer.stop()
-        self.toggle_timer_btn.setText("Start Match")
+        self.toggle_timer_btn.setText("Start Clock")
         did = self.get_active_device_id()
         if not did:
             QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
@@ -1615,7 +1637,7 @@ class ControlPanel(QWidget):
 
     def start_playlist_verlies(self):
         self.timer.stop()
-        self.toggle_timer_btn.setText("Start Match")
+        self.toggle_timer_btn.setText("Start Clock")
         did = self.get_active_device_id()
         if not did:
             QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
@@ -1640,10 +1662,12 @@ class ControlPanel(QWidget):
     def update_home_name(self):
         self.display.top_sporting_name.setText(self.team1_name.text())
         self.display.sporting_name.setText(self.team1_name.text())
+        self.team1_name.clearFocus()
 
     def update_visitor_name(self):
         self.display.visitor_name.setText(self.team2_name.text())
         self.display.top_visitor_name.setText(self.team2_name.text())
+        self.team2_name.clearFocus()
 
     def add_sporting_goal(self, label):
         score = int(label.text()) + 1
@@ -1670,15 +1694,15 @@ class ControlPanel(QWidget):
     def toggle_timer(self):
         if self.timer_running:
             self.timer.stop()
-            self.toggle_timer_btn.setText("Start Match")
+            self.toggle_timer_btn.setText("Start Clock")
         else:
             self.timer.start(1000)
-            self.toggle_timer_btn.setText("Stop Match")
+            self.toggle_timer_btn.setText("Stop Clock")
         self.timer_running = not self.timer_running
 
     def reset_timer_eerstehelft(self):
         self.timer.stop()
-        self.toggle_timer_btn.setText("Start Match")
+        self.toggle_timer_btn.setText("Start Clock")
         self.timer_running = not self.timer_running
         self.elapsed_seconds = 0
         self.display.timer_label.setText("00:00")
@@ -1686,7 +1710,7 @@ class ControlPanel(QWidget):
 
     def reset_timer_tweedehelft(self):
         self.timer.stop()
-        self.toggle_timer_btn.setText("Start Match")
+        self.toggle_timer_btn.setText("Start Clock")
         self.timer_running = not self.timer_running
         self.elapsed_seconds = 45 * 60
         self.display.timer_label.setText("45:00")
@@ -1732,7 +1756,7 @@ class ControlPanel(QWidget):
         if self.timer_running == True:
             self.timer_running = not self.timer_running
 
-        text = self.timer_input.text().strip()
+        text = self.clock_input.text().strip()
         try:
             minutes, seconds = map(int, text.split(":"))
             self.elapsed_seconds = minutes * 60 + seconds
@@ -1740,6 +1764,9 @@ class ControlPanel(QWidget):
             self.display.top_timer_label.setText(f"{minutes:02}:{seconds:02}")
         except Exception:
             QMessageBox.critical(self, "Invalid Format", "Please enter MM:SS")
+
+        self.clock_input.clearFocus()
+
 
     def start_sponsors_loop(self):
 
@@ -1978,6 +2005,8 @@ class ControlPanel(QWidget):
             return
 
         self.play_single_video(video_path)
+        self.goal_input.clear()
+        self.goal_input.clearFocus()
 
     def play_single_video(self, video_path):
         self.display.lineup_label.show()
