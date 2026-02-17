@@ -2,50 +2,31 @@ import sys
 import json
 import os
 import ctypes
+import random
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout,
     QPushButton, QLineEdit, QFileDialog, QStackedLayout, QMessageBox, QDialog
 )
-from PyQt5.QtCore import Qt, QTimer, QUrl, QTime
+from PyQt5.QtCore import Qt, QTimer, QUrl, QTime, QObject
 from PyQt5.QtGui import QFont, QPixmap, QFontDatabase
 import vlc
 from PyQt5.QtMultimediaWidgets import QVideoWidget
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
-import spotipy
-from spotipy.oauth2 import SpotifyOAuth
 import subprocess
 from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 from ctypes import POINTER, cast
 from comtypes import CLSCTX_ALL
 
-GOAL_SOUND = os.path.join("Media", "goal.mp3")
-PROLEAGUE_SOUND = os.path.join("Media", "proleague.wav")
-PREGAME_MIXTAPE = os.path.join("Media", "pregame_mixtape.mp3")
-COUNTDOWN = os.path.join("Media", "countdown.mp3")
+GOAL_SOUND = os.path.join("Media", "Goal.mp3")
+PROLEAGUE_SOUND = os.path.join("Media", "Proleague.wav")
+PREGAME_MIXTAPE = os.path.join("Music", "Pregame_mixtape.mp3")
+COUNTDOWN = os.path.join("Media", "Countdown.mp3")
+BAILA = os.path.join("Music", "Baila de Gasolina.wav")
+SYNRISE = os.path.join("Music", "Synrise.wav")
 video_path_lineup = 'Line-up-Visuals'
 video_path_goal = 'Goal-Visuals'
 
-# SPOTIFY API GEGEVENS
-CLIENT_ID = "608e84d64a84485988c331ecaed17027"
-CLIENT_SECRET = "a6a2863b966e4997a2213d494177e8e5"
-REDIRECT_URI = "http://127.0.0.1:8888/callback"
-PLAYLIST_URI = "https://open.spotify.com/playlist/07vuLI875maidRM60L6rjV?si=61f5f5015af34261" # default playlist 'Database'
 PLAYERS_FILE = "players.json"
-
-# Connect with api
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
-    client_id=CLIENT_ID,
-    client_secret=CLIENT_SECRET,
-    redirect_uri=REDIRECT_URI,
-    scope="user-modify-playback-state user-read-playback-state"
-))
-
-devices = sp.devices()
-if not devices['devices']:
-    print("open spotify!")
-else:
-    device_id = devices['devices'][0]['id']
-
 config_file = "config.json"
 
 if not os.path.exists(config_file):
@@ -94,16 +75,97 @@ controlpanel_display_number = config["controlpanel_display_number"]
 scoreboard_display_number = config["scoreboard_display_number"]
 ledboarding_display_number = config["ledboarding_display_number"]
 
-#settings spotify
-DATABASE_URL = config["database_url"]
-HALFTIME_URL = config["halftime_url"]
-PREGAME_URL = config["pregame_url"]
-WIN_URL = config["win_url"]
-LOSE_URL = config["lose_url"]
-
 #settings sponsors
 sponsor_duration = config["sponsor_duration"]
 show_greg = config["show_greg"]
+
+class FolderMediaPlayer(QObject):
+    def __init__(self, folder_path, shuffle=False, control_panel=None):
+        super().__init__()
+
+        self.folder_path = folder_path
+        self.shuffle = shuffle
+        self.control_panel = control_panel
+        self.tracks = []
+        self.index = 0
+        self.player = QMediaPlayer()
+        self.player.mediaStatusChanged.connect(self._handle_status)
+        self._load_tracks()
+        if self.tracks:
+            path = os.path.abspath(self.tracks[0])
+            self.player.setMedia(QMediaContent(QUrl.fromLocalFile(path)))
+
+    def _load_tracks(self):
+        if not os.path.exists(self.folder_path):
+            print("Map niet gevonden:", self.folder_path)
+            return
+
+        self.tracks = [
+            os.path.join(self.folder_path, f)
+            for f in os.listdir(self.folder_path)
+            if f.lower().endswith((".mp3", ".wav"))
+        ]
+
+        if self.shuffle:
+            random.shuffle(self.tracks)
+
+        self.index = 0
+
+    def play(self):
+        if not self.tracks:
+            return
+
+        if self.shuffle:
+            random.shuffle(self.tracks)
+
+        self._play_current()
+
+    def stop(self):
+        self.player.stop()
+
+    def _play_current(self):
+        path = os.path.abspath(self.tracks[self.index])
+        filename = os.path.splitext(os.path.basename(path))[0]
+        self.player.setMedia(QMediaContent(QUrl.fromLocalFile(path)))
+        self.player.play()
+        if self.control_panel:
+            self.control_panel.current_track_label.setText(
+                f"NOW PLAYING: {filename}"
+            )
+
+    def _next_track(self): #gebruikt voor autoplay naar volgende nummer
+        self.index += 1
+        if self.index >= len(self.tracks):
+            self.index = 0
+            if self.shuffle:
+                random.shuffle(self.tracks)
+        self._play_current()
+
+
+    def _handle_status(self, status):
+        if status == QMediaPlayer.EndOfMedia:
+            self._next_track()
+
+    def current_track_name(self):
+        if not self.tracks:
+            return ""
+        return os.path.basename(self.tracks[self.index])
+
+    def next_track(self): #ga naar volgende nummer
+        if not self.tracks:
+            return
+        self.index += 1
+        if self.index >= len(self.tracks):
+            self.index = 0
+        self._play_current()
+
+    def previous_track(self): #ga naar vorige nummer
+        if not self.tracks:
+            return
+        self.index -= 1
+        if self.index < 0:
+            self.index = len(self.tracks) - 1
+        self._play_current()
 
 class ScoreboardDisplay(QWidget):
     def __init__(self):
@@ -409,6 +471,8 @@ class ControlPanel(QWidget):
         self.media_timer.timeout.connect(self.update_remaining_time)
         self.time_remaining_label = QLabel("Time remaining: --:--")
         self.time_remaining_label.setStyleSheet("color: #463A8F; font-size: 20px; padding: 4px;")
+        self.current_track_label = QLabel("NOW PLAYING: --")
+        self.current_track_label.setStyleSheet("color: #463A8F; font-size: 20px; padding: 4px;")
 
         self.goal_sound = QMediaPlayer()
         self.goal_sound.setMedia(QMediaContent(QUrl.fromLocalFile(os.path.abspath(GOAL_SOUND))))
@@ -418,13 +482,31 @@ class ControlPanel(QWidget):
         self.countdown.setMedia(QMediaContent(QUrl.fromLocalFile(os.path.abspath(COUNTDOWN))))
         self.proleague_sound = QMediaPlayer()
         self.proleague_sound.setMedia(QMediaContent(QUrl.fromLocalFile(os.path.abspath(PROLEAGUE_SOUND))))
+        self.baila = QMediaPlayer()
+        self.baila.setMedia(QMediaContent(QUrl.fromLocalFile(os.path.abspath(BAILA))))
+        self.synrise = QMediaPlayer()
+        self.synrise.setMedia(QMediaContent(QUrl.fromLocalFile(os.path.abspath(SYNRISE))))
+
+        self.pregame_playlist = FolderMediaPlayer("Music/Pre-game", shuffle=False, control_panel=self)
+        self.database_playlist = FolderMediaPlayer("Music/Database", shuffle=True, control_panel=self)
+        self.winst_playlist = FolderMediaPlayer("Music/Winst", shuffle=False, control_panel=self)
+        self.verlies_playlist = FolderMediaPlayer("Music/Verlies", shuffle=False, control_panel=self)
+        self.gelijkspel_playlist = FolderMediaPlayer("Music/Gelijkspel", shuffle=False, control_panel=self)
+        self.halftime_playlist = FolderMediaPlayer("Music/Half-time", shuffle=False, control_panel=self)
+        self.active_folder_player = None
+
         self.initUI()
         self.load_sponsor_folder()
         self.vlc_instance = vlc.Instance()
-        for p in [self.goal_sound, self.pregame_mixtape, self.countdown, self.proleague_sound]:
+        for p in [self.goal_sound, self.pregame_mixtape, self.countdown, self.proleague_sound, self.baila, self.synrise]:
             p.durationChanged.connect(self._update_time_remaining_signal)
             p.positionChanged.connect(self._update_time_remaining_signal)
             p.mediaStatusChanged.connect(self._clear_time_remaining_on_stop)
+
+        for p in [self.database_playlist, self.winst_playlist, self.verlies_playlist, self.halftime_playlist, self.pregame_playlist, self.gelijkspel_playlist]:
+            p.player.durationChanged.connect(self._update_time_remaining_signal)
+            p.player.positionChanged.connect(self._update_time_remaining_signal)
+            p.player.mediaStatusChanged.connect(self._clear_time_remaining_on_stop)
         self.active_player = None
 
         self.loop_instance = vlc.Instance()
@@ -451,13 +533,8 @@ class ControlPanel(QWidget):
         self.sponsor_watchdog.timeout.connect(self._sponsor_watchdog_tick)
         self._sp_last_ms = -1
         self._sp_frozen_for = 0
-        self.spotify_timer = QTimer(self)
-        self.spotify_timer.setInterval(1000)
-        self.spotify_timer.timeout.connect(self.update_spotify_remaining)
-        self.current_spotify_track_id = None
 
         self.start_sponsors_loop()
-        self.check_update_available()
         self.players = self.load_players()
 
     def create_button(self, text, callback):
@@ -556,69 +633,6 @@ class ControlPanel(QWidget):
     def fade_out_volume(self):
         self.start_fade(0.0, steps=50, delay_ms=50)
 
-    def update_spotify_button_text(self):
-        try:
-            playback = sp.current_playback()
-            if playback and playback.get("is_playing"):
-                self.spotify_toggle_btn.setText("Pause")
-            else:
-                self.spotify_toggle_btn.setText("Play")
-        except Exception:
-            try:
-                self.spotify_toggle_btn.setText("Play")
-            except Exception:
-                pass
-
-    def get_active_device_id(self):
-        try:
-            devices_info = sp.devices()
-            devs = devices_info.get('devices', [])
-            if not devs:
-                return None
-            for d in devs:
-                if d.get('id') == globals().get('device_id'):
-                    return d.get('id')
-            return devs[0].get('id')
-        except Exception as e:
-            print("Error getting Spotify devices:", e)
-            return None
-
-    def toggle_spotify(self):
-        try:
-            did = self.get_active_device_id()
-            if not did:
-                QMessageBox.warning(self, "Spotify device", "Geen geldig Spotify-apparaat gevonden.")
-                return
-
-            globals()['device_id'] = did
-
-            playback = sp.current_playback()
-            if playback and playback.get("is_playing"):
-                try:
-                    sp.pause_playback(device_id=did)
-                except Exception as e:
-                    print("Spotify pause error:", e)
-                    QMessageBox.warning(self, "Spotify error", f"Could not pause: {e}")
-                finally:
-                    self.spotify_timer.stop()
-                    self.current_spotify_track_id = None
-            else:
-                try:
-                    self.stop_all_local_media()
-                    sp.start_playback(device_id=did)
-                except Exception as e:
-                    print("Spotify start error:", e)
-                    QMessageBox.warning(self, "Spotify error", f"Could not start: {e}")
-                else:
-                    self.spotify_timer.start()
-
-            QTimer.singleShot(150, self.update_spotify_button_text)
-        except Exception as e:
-            print("toggle_spotify error:", e)
-            try:
-                QMessageBox.warning(self, "Spotify", f"Error while toggling: {e}")
-            except Exception:
-                pass
 
     def keyPressEvent(self, event):
         focused = QApplication.focusWidget()
@@ -641,36 +655,7 @@ class ControlPanel(QWidget):
                 if hasattr(self, "goal_input"):
                     self.goal_input.setFocus()
                 return
-            if key == Qt.Key_Space:
-                try:
-                    self.toggle_spotify()
-                except Exception as e:
-                    print("Space toggle error:", e)
-                return
-            if key == Qt.Key_1:
-                self.start_playlist_database()
-                return
-            if key == Qt.Key_2:
-                self.start_playlist_pregame()
-                return
-            if key == Qt.Key_3:
-                self.dummy_button()
-                return
-            if key == Qt.Key_4:
-                try:
-                    self.start_baila(None)
-                except TypeError:
-                    self.start_baila()
-                return
-            if key == Qt.Key_5:
-                self.start_pregame_mixtape()
-                return
-            if key == Qt.Key_6:
-                self.dummy_button()
-                return
-            if key == Qt.Key_7:
-                self.start_synrise()
-                return
+
             if key == Qt.Key_8:
                 self.start_countdown()
                 return
@@ -710,20 +695,23 @@ class ControlPanel(QWidget):
             if key == Qt.Key_F12:
                 self.run_rendering()
                 return
-            if key == Qt.Key_Right:
-                self.spotify_next()
-                return
-            if key == Qt.Key_Left:
-                self.spotify_previous()
-                return
             if key == Qt.Key_Up:
                 self.fade_in_volume()
                 return
             if key == Qt.Key_Down:
                 self.fade_out_volume()
                 return
+            if key == Qt.Key_Right:
+                self.play_next_track()
+                return
+            if key == Qt.Key_Left:
+                self.play_previous_track()
+                return
             if key == Qt.Key_Backspace:
                 self.stop_all_local_media()
+                return
+            if key == Qt.Key_Space:
+                self.toggle_play_pause()
                 return
             super().keyPressEvent(event)
 
@@ -749,57 +737,64 @@ class ControlPanel(QWidget):
             m, s = divmod(remaining, 60)
             self.time_remaining_label.setText(f"Time remaining: {m:02}:{s:02}")
 
+        else:
+            self.time_remaining_label.setText("Time remaining: --:--")
+
     def _clear_time_remaining_on_stop(self, status):
         if getattr(self, "active_player", None) is self.sender():
             if status in (QMediaPlayer.EndOfMedia, QMediaPlayer.NoMedia, QMediaPlayer.InvalidMedia):
                 self.time_remaining_label.setText("Time remaining: --:--")
 
-    def update_spotify_remaining(self):
-        try:
-            playback = sp.current_playback()
-            if not playback or not playback.get("is_playing") or not playback.get("item"):
-                return
-
-            track_id = playback["item"]["id"]
-
-            dur = playback["item"]["duration_ms"] // 1000
-            pos = playback["progress_ms"] // 1000
-            remaining = max(0, dur - pos)
-            m, s = divmod(remaining, 60)
-            self.time_remaining_label.setText(f"Time remaining: {m:02}:{s:02}")
-
-            if self.current_spotify_track_id != track_id:
-                self.current_spotify_track_id = track_id
-                dur = playback["item"]["duration_ms"] // 1000
-                remaining = max(0, dur - pos)
-                m, s = divmod(remaining, 60)
-                self.time_remaining_label.setText(f"Time remaining: {m:02}:{s:02}")
-            QTimer.singleShot(0, self.update_spotify_button_text)
-        except Exception:
-            pass
-
     def _stop_all_local_media(self):
-        for p in [self.goal_sound, self.pregame_mixtape, self.countdown, self.proleague_sound]:
+        for p in [self.goal_sound, self.pregame_mixtape, self.countdown, self.proleague_sound, self.baila, self.synrise]:
             try:
                 p.stop()
             except Exception:
                 pass
+
+        for p in [self.database_playlist, self.winst_playlist, self.verlies_playlist, self.halftime_playlist, self.pregame_playlist, self.gelijkspel_playlist]:
+            try:
+                p.player.stop()
+            except Exception:
+                pass
+        self.current_track_label.setText("NOW PLAYING: --")
 
     def is_local_audio_playing(self):
         players = [
             self.goal_sound,
             self.pregame_mixtape,
             self.countdown,
-            self.proleague_sound
+            self.proleague_sound,
+            self.baila,
+            self.synrise
         ]
         return any(p.state() == QMediaPlayer.PlayingState for p in players)
 
+    def _play_local_media_folder(self, folder_player: FolderMediaPlayer):
+        self._stop_all_local_media()
+        self.active_folder_player = folder_player
+        self.active_player = folder_player.player
+        folder_player.stop()
+        folder_player.play()
+        self.play_pause_btn.setText("⏸ Pause")
+
     def _play_local_media(self, player: QMediaPlayer):
         self._stop_all_local_media()
-        self._set_active_local_player(player)
+        self.active_folder_player = None
+        self.active_player = player
+        media = player.media()
+        if media is not None:
+            url = media.canonicalUrl().toLocalFile()
+            if url:
+                filename = os.path.splitext(os.path.basename(url))[0]
+                self.current_track_label.setText(f"NOW PLAYING: {filename}")
+            else:
+                self.current_track_label.setText("NOW PLAYING: --")
+        else:
+            self.current_track_label.setText("NOW PLAYING: --")
         player.stop()
         player.play()
-
+        self.play_pause_btn.setText("⏸ Pause")
 
     def start_loop_video(self):
         if not os.path.exists(self.loop_video_path):
@@ -995,20 +990,19 @@ class ControlPanel(QWidget):
         column_2 = QVBoxLayout()
         column_2.setSpacing(10)
         column_2.addWidget(QLabel("Local Audio"))
-        column_2.addWidget(self.create_button("Stop All Local Media", self.stop_all_local_media))
+        self.play_pause_btn = QPushButton("▶ Play")
+        self.play_pause_btn.clicked.connect(self.toggle_play_pause)
+        column_2.addWidget(self.play_pause_btn)
+        next_previous_layout = QHBoxLayout()
+        next_previous_layout.addWidget(self.create_button("Previous", self.play_previous_track))
+        next_previous_layout.addWidget(self.create_button("Next", self.play_next_track))
+        column_2.addLayout(next_previous_layout)
+        column_2.addWidget(QLabel(""))
+        column_2.addWidget(self.create_button("Stop COUNTDOWN/PRO LEAGUE HYMNE", self.stop_all_local_media))
         fade_layout = QHBoxLayout()
         fade_layout.addWidget(self.create_button("Fade In", self.fade_in_volume))
         fade_layout.addWidget(self.create_button("Fade Out", self.fade_out_volume))
         column_2.addLayout(fade_layout)
-
-        column_2.addWidget(QLabel("Spotify"))
-        self.spotify_toggle_btn = QPushButton("Play")
-        self.spotify_toggle_btn.clicked.connect(self.toggle_spotify)
-        column_2.addWidget(self.spotify_toggle_btn)
-        next_previous_layout = QHBoxLayout()
-        next_previous_layout.addWidget(self.create_button("Previous", self.spotify_previous))
-        next_previous_layout.addWidget(self.create_button("Next", self.spotify_next))
-        column_2.addLayout(next_previous_layout)
 
         column_2.addWidget(QLabel("LED Boarding"))
         boarding_layout = QHBoxLayout()
@@ -1051,64 +1045,65 @@ class ControlPanel(QWidget):
         announcement_layout.addWidget(self.create_button("   Hide   ",self.hide_mededeling))
         column_2.addLayout(announcement_layout)
 
-        column_3 = QVBoxLayout()
-        column_3.setSpacing(10)
-        column_3.addWidget(QLabel("Audio - starts when pushed"))
-        btn = self.create_button("1. T-60' - Database Playlist", self.start_playlist_database)
+        spotify_layout = QVBoxLayout()
+        spotify_layout.setSpacing(10)
+        timeupdate_layout = QVBoxLayout()
+        timeupdate_layout.setSpacing(10)
+        timeupdate_layout.addWidget(QLabel("Starting Time Match"))
+        self.match_time_input = QLineEdit("20:00")
+        self.match_time_input.returnPressed.connect(self.update_match_time)
+        timeupdate_layout.addWidget(self.match_time_input)
+        spotify_layout.addLayout(timeupdate_layout)
+        spotify_layout.addWidget(QLabel("Audio"))
+        btn = self.create_button("1. T-60' - Start Database Playlist", self.start_playlist_database)
         btn._offset = 60
-        btn._desc = "1. Database Playlist"
-        column_3.addWidget(btn)
+        btn._desc = "1. Start Database Playlist"
+        spotify_layout.addWidget(btn)
 
-        btn = self.create_button("2. T-30' - Pre-game Playlist", self.start_playlist_pregame)
+        btn = self.create_button("2. T-30' - Start Pre-game Playlist (tot I Gotta Feeling)",
+                                 self.start_playlist_pregame)
         btn._offset = 30
-        btn._desc = "2. Pre-game Playlist"
-        column_3.addWidget(btn)
+        btn._desc = "2. Start Pre-game Playlist (tot I Gotta Feeling)"
+        spotify_layout.addWidget(btn)
 
         btn = self.create_button("3. T-20' - OMROEP: Opstelling tegenstander", self.dummy_button)
         btn._offset = 20
         btn._desc = "3. OMROEP: Opstelling tegenstander"
-        column_3.addWidget(btn)
+        spotify_layout.addWidget(btn)
 
-        btn = self.create_button("4. T-18' - Baila de Gasolina (ATCS)", self.start_baila)
+        btn = self.create_button("4. T-18' - Start Baila de Gasolina (ATCS)", self.start_baila)
         btn._offset = 18
-        btn._desc = "4. Baila de Gasolina (ATCS)"
-        column_3.addWidget(btn)
+        btn._desc = "4. Start Baila de Gasolina (ATCS)"
+        spotify_layout.addWidget(btn)
 
-        btn = self.create_button("5. T-15' - 10' Mixtape", self.start_pregame_mixtape)
+        btn = self.create_button("5. T-15' - Start 10' Mixtape", self.start_pregame_mixtape)
         btn._offset = 15
-        btn._desc = "5. 10' Mixtape"
-        column_3.addWidget(btn)
+        btn._desc = "5. Start 10' Mixtape"
+        spotify_layout.addWidget(btn)
 
         btn = self.create_button("6. T-07' - OMROEP: Opstelling Sporting", self.dummy_button)
         btn._offset = 7
         btn._desc = "6. OMROEP: Opstelling Sporting"
-        column_3.addWidget(btn)
+        spotify_layout.addWidget(btn)
 
-        column_3.addWidget(self.create_button("7. Indien Nodig - Synrise (07:35)", self.start_synrise))
-        column_3.addWidget(QLabel(""))
-        btn = self.create_button("8. T-5' - Countdown (na signaal steward)", self.start_countdown)
+        spotify_layout.addWidget(self.create_button("7. Indien Nodig - Start Synrise (07:35)", self.start_synrise))
+        spotify_layout.addWidget(QLabel(""))
+        btn = self.create_button("8. T-5' - Start Countdown (na signaal steward)", self.start_countdown)
         btn._offset = 5
-        btn._desc = "8. Countdown (na signaal steward)"
-        column_3.addWidget(btn)
+        btn._desc = "8. Start Countdown (na signaal steward)"
+        spotify_layout.addWidget(btn)
 
-        btn = self.create_button("9. T-2' - Pro League Hymne", self.play_proleague_hymne)
+        btn = self.create_button("9. T-2' - Play Pro League Hymne", self.play_proleague_hymne)
         btn._offset = 2
-        btn._desc = "9. Pro League Hymne"
-        column_3.addWidget(btn)
+        btn._desc = "9. Play Pro League Hymne"
+        spotify_layout.addWidget(btn)
+        spotify_layout.addWidget(self.create_button("Start Half-Time playlist", self.start_playlist_halftime))
 
-        column_3.addWidget(QLabel(""))
-        column_3.addWidget(self.create_button("Half-Time", self.start_playlist_halftime))
-        winst_verlies_layout = QHBoxLayout()
-        winst_verlies_layout.addWidget(self.create_button("Playlist Winst", self.start_playlist_winst))
-        winst_verlies_layout.addWidget(self.create_button("Playlist Verlies", self.start_playlist_verlies))
-        column_3.addLayout(winst_verlies_layout)
-        column_3.addWidget(self.create_button("Playlist Gelijkspel (Database)", self.start_playlist_database))
-        column_3.addWidget(self.create_button("EUROMIR", self.start_euromir))
-
-        column_3.addWidget(QLabel("Other Software"))
-        column_3.addWidget(self.create_button("Open Spotify", self.open_spotify_app))
-        column_3.addWidget(self.create_button("Open LedSet", self.open_ledset_app))
-        column_3.addWidget(self.create_button("Open Config File", self.open_config_file))
+        spotify_layout.addWidget(QLabel(""))
+        spotify_layout.addWidget(self.create_button("Start Playlist Winst", self.start_playlist_winst))
+        spotify_layout.addWidget(
+            self.create_button("Start Playlist Gelijkspel (Database)", self.start_playlist_gelijkspel))
+        spotify_layout.addWidget(self.create_button("Start Playlist Verlies", self.start_playlist_verlies))
 
         column_4 = QVBoxLayout()
         column_4.setSpacing(10)
@@ -1125,6 +1120,7 @@ class ControlPanel(QWidget):
             self.logo_small.setStyleSheet("color: #777; font-size: 12px;")
         column_4.addWidget(self.logo_small, alignment=Qt.AlignCenter)
         column_4.addWidget(self.time_remaining_label)
+        column_4.addWidget(self.current_track_label)
 
         column_4.addWidget(QLabel("Line-up Visuals"))
         for i in range(0, 14, 2):
@@ -1154,23 +1150,15 @@ class ControlPanel(QWidget):
         self.lineup_next_btn.clicked.connect(self.lineup_next)
         column_4.addWidget(self.lineup_next_btn)
 
-        self.update_available_label = QLabel("Patat")
-        self.update_available_label.setStyleSheet("color: purple;")
-        column_4.addWidget(self.update_available_label)
-        update_btn = QPushButton("Update Software (Werkt niet!)")
-        update_btn.clicked.connect(self.update_software)
-        column_4.addWidget(update_btn)
-
         main_layout.addLayout(column_1, 1)
         main_layout.addLayout(column_2, 1)
-        main_layout.addLayout(column_3, 1)
+        main_layout.addLayout(spotify_layout, 1)
         main_layout.addLayout(column_4, 1)
 
         self.setLayout(main_layout)
         self.setFocusPolicy(Qt.StrongFocus)
         self.setFocus()
-        self.update_spotify_button_text()
-        #self.is_fullscreen = True   niet gebruiken! anders wordt taakbalk genegeerd.
+        #self.is_fullscreen = True //niet gebruiken! anders wordt taakbalk genegeerd.
 
     def toggle_lineup_mode(self):
         self.lineup_mode_auto = not self.lineup_mode_auto
@@ -1179,6 +1167,56 @@ class ControlPanel(QWidget):
             self.lineup_mode_btn.setText("Mode: Automatisch")
         else:
             self.lineup_mode_btn.setText("Mode: Handmatig")
+
+    def start_playlist_database(self):
+        self._play_local_media_folder(self.database_playlist)
+
+    def start_playlist_pregame(self):
+        self._play_local_media_folder(self.pregame_playlist)
+
+    def start_playlist_winst(self):
+        self._play_local_media_folder(self.winst_playlist)
+
+    def start_playlist_verlies(self):
+        self._play_local_media_folder(self.verlies_playlist)
+
+    def start_playlist_gelijkspel(self):
+        self._play_local_media_folder(self.gelijkspel_playlist)
+
+    def start_playlist_halftime(self):
+        self._play_local_media_folder(self.halftime_playlist)
+
+    def play_next_track(self):
+        if self.active_folder_player:
+            self.active_folder_player.next_track()
+            self.play_pause_btn.setText("⏸ Pause")
+
+
+    def play_previous_track(self):
+        if self.active_folder_player:
+            self.active_folder_player.previous_track()
+            self.play_pause_btn.setText("⏸ Pause")
+
+
+    def toggle_play_pause(self):
+        player = self.active_player
+
+        if not player:
+            return
+
+        state = player.state()
+
+        if state == QMediaPlayer.PlayingState:
+            player.pause()
+            self.play_pause_btn.setText("▶ Play")
+
+        elif state == QMediaPlayer.PausedState:
+            player.play()
+            self.play_pause_btn.setText("⏸ Pause")
+
+        else:
+            player.play()
+            self.play_pause_btn.setText("⏸ Pause")
 
     def trigger_wissel(self):
         nummer_in = self.wissel_in_input.text().strip()
@@ -1277,55 +1315,6 @@ class ControlPanel(QWidget):
         self.display.stack.setCurrentIndex(0)
         self.mededeling_input.clear()
 
-
-    def update_software(self):
-        try:
-            repo_path = os.path.join(os.path.expanduser("~"), "Desktop", "Ridepulse-Control")
-            result = subprocess.run(
-                ["git", "-C", repo_path, "pull"],
-                capture_output=True,
-                text=True
-            )
-
-            if result.returncode != 0:
-                QMessageBox.warning(self, "Update error", "Git error:\n" + result.stderr)
-                return
-            QMessageBox.information(self, "Update",
-                                    "Update completed\nRebooting...")
-
-            current_exe = sys.executable
-            exe_dir = os.path.dirname(current_exe)
-            subprocess.Popen([current_exe], cwd=exe_dir)
-            QApplication.quit()
-
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Could not update software:\n{e}")
-
-    def check_update_available(self):
-        repo_path = os.path.join(os.path.expanduser("~"), "Desktop", "Ridepulse-control")
-        try:
-            subprocess.run(["git", "-C", repo_path, "fetch"], check=True, capture_output=True)
-
-            local = subprocess.run(
-                ["git", "-C", repo_path, "rev-parse", "HEAD"],
-                capture_output=True, text=True, check=True
-            ).stdout.strip()
-            upstream = subprocess.run(
-                ["git", "-C", repo_path, "rev-parse", "@{u}"],
-                capture_output=True, text=True, check=True
-            ).stdout.strip()
-
-            if local != upstream:
-                self.update_available_label.setText("Update available!")
-                self.update_available_label.setStyleSheet("color: orange;")
-            else:
-                self.update_available_label.setText("Up-to-date")
-                self.update_available_label.setStyleSheet("color: green;")
-
-        except Exception as e:
-            self.update_available_label.setText("Update check failed")
-            self.update_available_label.setStyleSheet("color: red;")
-            print("Update check error:", e)
     def run_rendering(self):
         try:
             exe_path = (os.path.join("Rendering_boarding", "rendering.exe"))
@@ -1395,28 +1384,11 @@ class ControlPanel(QWidget):
             QMessageBox.critical(self, "Error", f"Could not open config file:\n{e}")
 
     def stop_all_local_media(self):
-        for player in [self.goal_sound, self.pregame_mixtape, self.countdown, self.proleague_sound]:
+        for player in [self.goal_sound, self.pregame_mixtape, self.countdown, self.proleague_sound, self.baila, self.synrise]:
             player.stop()
         self.media_timer.stop()
         self.time_remaining_label.setText("Time remaining: --:--")
 
-    def open_spotify_app(self):
-        try:
-            subprocess.Popen(["spotify"])
-        except FileNotFoundError:
-            QMessageBox.critical(self, "Fout", "Spotify kon niet worden gevonden vanuit de Microsoft Store.")
-
-        mogelijk_paden = [
-            r"C:\\Users\\Ridepulse\\AppData\\Roaming\\Spotify\\Spotify.exe",
-        ]
-        for pad in mogelijk_paden:
-            if os.path.exists(pad):
-                try:
-                    subprocess.Popen([pad])
-                    return
-                except Exception as e:
-                    QMessageBox.critical(self, "Error", f"Could not open Spotify in AppData:\n{e}")
-                    return
 
     def open_ledset_app(self):
         mogelijk_paden = [
@@ -1509,147 +1481,16 @@ class ControlPanel(QWidget):
         print("Dummy button hihi")
 
     def start_pregame_mixtape(self):
-        playback = sp.current_playback()
-        if playback and playback["is_playing"]:
-            sp.pause_playback(device_id=device_id)
-        else:
-            pass
         self._play_local_media(self.pregame_mixtape)
 
-    def start_countdown(self):
-        self.pregame_mixtape.stop()
-        playback = sp.current_playback()
-        if playback and playback["is_playing"]:
-            sp.pause_playback(device_id=device_id)
-        else:
-            pass
-        self._play_local_media(self.countdown)
-
-    def spotify_next(self):
-        sp.next_track(device_id=device_id)
-
-    def spotify_previous(self):
-        sp.previous_track(device_id=device_id)
-
-    def start_baila(self, name=None):
-        self.stop_all_local_media()
-        PLAYLIST_URI = "https://open.spotify.com/album/2ojXXfh1QKhimrvz4wt97G"
-
-        sp.shuffle(state=False, device_id=device_id)
-        sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI)
-        self.current_spotify_track_id = None
-        self.spotify_timer.start()
-        self.fade_in_volume()
-
-    def start_euromir(self, name):
-        did = self.get_active_device_id()
-        if not did:
-            QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
-            return
-        globals()['device_id'] = did
-
-        PLAYLIST_URI = "https://open.spotify.com/album/1PrgiMlNc0fBtW0U9TdQFj"
-        sp.shuffle(state=False, device_id=device_id)
-        self.stop_all_local_media()
-        sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI, offset={"position": 1})
-        self.current_spotify_track_id = None
-        self.spotify_timer.start()
-
-    def start_playlist_database(self):
-        self.timer.stop()
-        self.toggle_timer_btn.setText("Start Clock")
-        did = self.get_active_device_id()
-        if not did:
-            QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
-            return
-        globals()['device_id'] = did
-
-        PLAYLIST_URI = DATABASE_URL
-        sp.shuffle(state=True, device_id=device_id)
-        self.stop_all_local_media()
-        sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI)
-        self.current_spotify_track_id = None
-        self.spotify_timer.start()
-
-    def start_playlist_halftime(self):
-        self.timer.stop()
-        self.toggle_timer_btn.setText("Start Clock")
-        did = self.get_active_device_id()
-        if not did:
-            QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
-            return
-        globals()['device_id'] = did
-
-        PLAYLIST_URI = HALFTIME_URL
-        sp.shuffle(state=False, device_id=device_id)
-        self.stop_all_local_media()
-        sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI)
-        self.current_spotify_track_id = None
-        self.spotify_timer.start()
-        self.halftime_dialog = CountdownDialog(15 * 60, self)
-        self.halftime_dialog.show()
-
-    def start_playlist_pregame(self):
-        did = self.get_active_device_id()
-        if not did:
-            QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
-            return
-        globals()['device_id'] = did
-
-        PLAYLIST_URI = PREGAME_URL
-        sp.shuffle(state=False, device_id=device_id)
-        self.stop_all_local_media()
-        sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI)
-        self.current_spotify_track_id = None
-        self.spotify_timer.start()
-
+    def start_baila(self):
+        self._play_local_media(self.baila)
 
     def start_synrise(self):
-        did = self.get_active_device_id()
-        if not did:
-            QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
-            return
-        globals()['device_id'] = did
+        self._play_local_media(self.synrise)
 
-        self.pregame_mixtape.stop()
-        PLAYLIST_URI = PREGAME_URL
-        sp.shuffle(state=False, device_id=device_id)
-        self.stop_all_local_media()
-        sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI, offset={"position": 4})
-        self.current_spotify_track_id = None
-        self.spotify_timer.start()
-
-    def start_playlist_winst(self):
-        self.timer.stop()
-        self.toggle_timer_btn.setText("Start Clock")
-        did = self.get_active_device_id()
-        if not did:
-            QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
-            return
-        globals()['device_id'] = did
-
-        PLAYLIST_URI = WIN_URL
-        sp.shuffle(state=False, device_id=device_id)
-        self.stop_all_local_media()
-        sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI)
-        self.current_spotify_track_id = None
-        self.spotify_timer.start()
-
-    def start_playlist_verlies(self):
-        self.timer.stop()
-        self.toggle_timer_btn.setText("Start Clock")
-        did = self.get_active_device_id()
-        if not did:
-            QMessageBox.warning(self, "Spotify", "Geen geldig Spotify-apparaat gevonden.")
-            return
-        globals()['device_id'] = did
-
-        PLAYLIST_URI = LOSE_URL
-        sp.shuffle(state=False, device_id=device_id)
-        self.stop_all_local_media()
-        sp.start_playback(device_id=device_id, context_uri=PLAYLIST_URI)
-        self.current_spotify_track_id = None
-        self.spotify_timer.start()
+    def start_countdown(self):
+        self._play_local_media(self.countdown)
 
     def exit_application(self):
         screens = QApplication.screens()
@@ -1978,11 +1819,6 @@ class ControlPanel(QWidget):
         self.play_next_lineup_video()
 
     def play_proleague_hymne(self):
-        playback = sp.current_playback()
-        if playback and playback["is_playing"]:
-            sp.pause_playback(device_id=device_id)
-        else:
-            pass
         def after_fade_out():
             self.stop_all_local_media()
             self._set_master_volume(1.0)
