@@ -383,11 +383,18 @@ class ScoreboardDisplay(QWidget):
         self.wissel_out.setStyleSheet("color: #FFFFFF;")
         self.wissel_out.setAttribute(Qt.WA_TranslucentBackground)
 
+        self.image_label = QLabel()
+        self.image_label.setFixedSize(360, 240)
+        self.image_label.setStyleSheet("background-color: black;")
+        self.image_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.image_label.setScaledContents(True)
+
         self.stack.addWidget(main_page)  # index 0
         self.stack.addWidget(lineup_page)  # index 1
         self.stack.addWidget(greg_page)  # index 2
         self.stack.addWidget(self.mededeling_container)  # index 3
         self.stack.addWidget(self.wissel_container)  # index 4
+        self.stack.addWidget(self.image_label)  # index 5
 
         main_layout.addLayout(self.stack)
 
@@ -466,6 +473,9 @@ class ControlPanel(QWidget):
         self.video_timer.timeout.connect(self.show_next_sponsor)
 
         self.remaining_time = QTime(0, 0, 0)
+
+        self.custom_video_path = None
+        self.custom_image_path = None
 
         self.media_timer = QTimer()
         self.media_timer.timeout.connect(self.update_remaining_time)
@@ -1150,6 +1160,21 @@ class ControlPanel(QWidget):
         self.lineup_next_btn.clicked.connect(self.lineup_next)
         column_4.addWidget(self.lineup_next_btn)
 
+        column_4.addWidget(QLabel("Scorebord Video"))
+        video_btn_layout = QHBoxLayout()
+        video_btn_layout.addWidget(self.create_button("Select Video", self.select_custom_video))
+        video_btn_layout.addWidget(self.create_button("Start Video", self.start_custom_video))
+        column_4.addLayout(video_btn_layout)
+
+        column_4.addWidget(QLabel("Scorebord Image"))
+        image_btn_layout = QHBoxLayout()
+        self.image_duration_input = QLineEdit()
+        self.image_duration_input.setPlaceholderText("Seconds")
+        image_btn_layout.addWidget(self.create_button("Select Image", self.select_custom_image))
+        image_btn_layout.addWidget(self.image_duration_input)
+        image_btn_layout.addWidget(self.create_button("Start Image", self.start_custom_image))
+        column_4.addLayout(image_btn_layout)
+
         main_layout.addLayout(column_1, 1)
         main_layout.addLayout(column_2, 1)
         main_layout.addLayout(spotify_layout, 1)
@@ -1167,6 +1192,68 @@ class ControlPanel(QWidget):
             self.lineup_mode_btn.setText("Mode: Automatisch")
         else:
             self.lineup_mode_btn.setText("Mode: Handmatig")
+
+    def select_custom_video(self):
+        file, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select video",
+            "",
+            "Video Files (*.mp4 *.avi *.mov *.mkv)"
+        )
+
+        if file:
+            self.custom_video_path = file
+
+    def select_custom_image(self):
+        file, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Image",
+            "",
+            "Image Files (*.png *.jpg *.jpeg)"
+        )
+
+        if file:
+            self.custom_image_path = file
+
+    def start_custom_image(self):
+        if not self.custom_image_path:
+            QMessageBox.warning(self, "No file selected", "Select an image.")
+            return
+
+        if not os.path.exists(self.custom_image_path):
+            QMessageBox.warning(self, "File not found", self.custom_image_path)
+            return
+
+        try:
+            seconds = int(self.image_duration_input.text())
+        except:
+            QMessageBox.warning(self, "Invalid time", "Enter duration in seconds.")
+            return
+
+        pixmap = QPixmap(self.custom_image_path).scaled(
+            self.display.image_label.size(),
+            Qt.IgnoreAspectRatio,
+            Qt.SmoothTransformation
+        )
+
+        self.display.image_label.setPixmap(pixmap)
+
+        # switch naar image layer
+        self.display.stack.setCurrentIndex(5)
+
+        QTimer.singleShot(seconds * 1000, self.hide_lineup_visual)
+
+    def start_custom_video(self):
+        if not self.custom_video_path:
+            QMessageBox.warning(self, "No file selected", "Select a video.")
+            return
+
+        if not os.path.exists(self.custom_video_path):
+            QMessageBox.warning(self, "File not found", self.custom_video_path)
+            return
+
+        self.lineup_video_player.audio_set_mute(False)
+        self.play_single_video(self.custom_video_path)
 
     def start_playlist_database(self):
         self._play_local_media_folder(self.database_playlist)
@@ -1589,6 +1676,8 @@ class ControlPanel(QWidget):
     def hide_lineup_visual(self):
         self.display.lineup_label.clear()
         self.display.lineup_label.hide()
+        self.display.image_label.clear()
+        self.display.image_label.hide()
         self.display.stack.setCurrentIndex(0)
 
     def update_timer_value(self):
@@ -1839,7 +1928,7 @@ class ControlPanel(QWidget):
         if not os.path.exists(video_path):
             QMessageBox.warning(self, "File not found", f"Could not find: {video_path}")
             return
-
+        self.lineup_video_player.audio_set_mute(True)
         self.play_single_video(video_path)
         self.goal_input.clear()
         self.goal_input.clearFocus()
@@ -1850,7 +1939,6 @@ class ControlPanel(QWidget):
 
         media = self.lineup_vlc_instance.media_new(video_path)
         self.lineup_video_player.set_media(media)
-        self.lineup_video_player.audio_set_mute(True)
         self.lineup_video_player.play()
         QTimer.singleShot(100, lambda: self.display.stack.setCurrentIndex(1))
 
