@@ -18,11 +18,12 @@ from ctypes import POINTER, cast
 from comtypes import CLSCTX_ALL
 
 GOAL_SOUND = os.path.join("Media", "Goal.mp3")
-PROLEAGUE_SOUND = os.path.join("Media", "Proleague.wav")
+PROLEAGUE_SOUND = os.path.join("Media", "Proleague.mp3")
 PREGAME_MIXTAPE = os.path.join("Music", "Pregame_mixtape.mp3")
 COUNTDOWN = os.path.join("Media", "Countdown.mp3")
 BAILA = os.path.join("Music", "Baila de Gasolina.wav")
 SYNRISE = os.path.join("Music", "Synrise.wav")
+ACHTERGROND = os.path.join("Media", "Opstelling Achtergrondmuziek.mp3")
 video_path_lineup = 'Line-up-Visuals'
 video_path_goal = 'Goal-Visuals'
 
@@ -496,11 +497,13 @@ class ControlPanel(QWidget):
         self.baila.setMedia(QMediaContent(QUrl.fromLocalFile(os.path.abspath(BAILA))))
         self.synrise = QMediaPlayer()
         self.synrise.setMedia(QMediaContent(QUrl.fromLocalFile(os.path.abspath(SYNRISE))))
+        self.achtergrond_opstelling = QMediaPlayer()
+        self.achtergrond_opstelling.setMedia(QMediaContent(QUrl.fromLocalFile(os.path.abspath(ACHTERGROND))))
 
         self.pregame_playlist = FolderMediaPlayer("Music/Pre-game", shuffle=False, control_panel=self)
         self.database_playlist = FolderMediaPlayer("Music/Database", shuffle=True, control_panel=self)
         self.winst_playlist = FolderMediaPlayer("Music/Winst", shuffle=False, control_panel=self)
-        self.verlies_playlist = FolderMediaPlayer("Music/Verlies", shuffle=False, control_panel=self)
+        self.verlies_playlist = FolderMediaPlayer("Music/Verlies-draw", shuffle=False, control_panel=self)
         self.gelijkspel_playlist = FolderMediaPlayer("Music/Gelijkspel", shuffle=False, control_panel=self)
         self.halftime_playlist = FolderMediaPlayer("Music/Half-time", shuffle=False, control_panel=self)
         self.active_folder_player = None
@@ -508,7 +511,7 @@ class ControlPanel(QWidget):
         self.initUI()
         self.load_sponsor_folder()
         self.vlc_instance = vlc.Instance()
-        for p in [self.goal_sound, self.pregame_mixtape, self.countdown, self.proleague_sound, self.baila, self.synrise]:
+        for p in [self.goal_sound, self.pregame_mixtape, self.countdown, self.proleague_sound, self.baila, self.synrise, self.achtergrond_opstelling]:
             p.durationChanged.connect(self._update_time_remaining_signal)
             p.positionChanged.connect(self._update_time_remaining_signal)
             p.mediaStatusChanged.connect(self._clear_time_remaining_on_stop)
@@ -756,7 +759,7 @@ class ControlPanel(QWidget):
                 self.time_remaining_label.setText("Time remaining: --:--")
 
     def _stop_all_local_media(self):
-        for p in [self.goal_sound, self.pregame_mixtape, self.countdown, self.proleague_sound, self.baila, self.synrise]:
+        for p in [self.goal_sound, self.pregame_mixtape, self.countdown, self.proleague_sound, self.baila, self.synrise, self.achtergrond_opstelling]:
             try:
                 p.stop()
             except Exception:
@@ -776,7 +779,8 @@ class ControlPanel(QWidget):
             self.countdown,
             self.proleague_sound,
             self.baila,
-            self.synrise
+            self.synrise,
+            self.achtergrond_opstelling
         ]
         return any(p.state() == QMediaPlayer.PlayingState for p in players)
 
@@ -1091,7 +1095,7 @@ class ControlPanel(QWidget):
         btn._desc = "5. Start 10' Mixtape"
         spotify_layout.addWidget(btn)
 
-        btn = self.create_button("6. T-07' - OMROEP: Opstelling Sporting", self.dummy_button)
+        btn = self.create_button("6. T-07' - OMROEP: Opstelling Sporting + music", self.start_achtergrond_opstelling)
         btn._offset = 7
         btn._desc = "6. OMROEP: Opstelling Sporting"
         spotify_layout.addWidget(btn)
@@ -1103,7 +1107,7 @@ class ControlPanel(QWidget):
         btn._desc = "8. Start Countdown (na signaal steward)"
         spotify_layout.addWidget(btn)
 
-        btn = self.create_button("9. T-2' - Play Pro League Hymne", self.play_proleague_hymne)
+        btn = self.create_button("9. T-2' - Pro League + Als Sporting Komt", self.play_proleague_hymne)
         btn._offset = 2
         btn._desc = "9. Play Pro League Hymne"
         spotify_layout.addWidget(btn)
@@ -1111,9 +1115,7 @@ class ControlPanel(QWidget):
 
         spotify_layout.addWidget(QLabel(""))
         spotify_layout.addWidget(self.create_button("Start Playlist Winst", self.start_playlist_winst))
-        spotify_layout.addWidget(
-            self.create_button("Start Playlist Gelijkspel (Database)", self.start_playlist_gelijkspel))
-        spotify_layout.addWidget(self.create_button("Start Playlist Verlies", self.start_playlist_verlies))
+        spotify_layout.addWidget(self.create_button("Start Playlist Verlies/Draw", self.start_playlist_verlies))
 
         column_4 = QVBoxLayout()
         column_4.setSpacing(10)
@@ -1266,9 +1268,6 @@ class ControlPanel(QWidget):
 
     def start_playlist_verlies(self):
         self._play_local_media_folder(self.verlies_playlist)
-
-    def start_playlist_gelijkspel(self):
-        self._play_local_media_folder(self.gelijkspel_playlist)
 
     def start_playlist_halftime(self):
         self._play_local_media_folder(self.halftime_playlist)
@@ -1572,6 +1571,9 @@ class ControlPanel(QWidget):
 
     def start_baila(self):
         self._play_local_media(self.baila)
+
+    def start_achtergrond_opstelling(self):
+        self._play_local_media(self.achtergrond_opstelling)
 
     def start_synrise(self):
         self._play_local_media(self.synrise)
@@ -1903,7 +1905,6 @@ class ControlPanel(QWidget):
             QTimer.singleShot(500, freeze_last_frame)
 
     def _auto_advance_lineup(self):
-
         self.lineup_index += 1
         self.play_next_lineup_video()
 
