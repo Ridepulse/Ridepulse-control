@@ -26,8 +26,8 @@
   "time_wissel_visual": 10000,
 
   "controlpanel_display_number": 0,
-  "scoreboard_display_number": 2,
-  "ledboarding_display_number": 1,
+  "scoreboard_display_number": 1,
+  "ledboarding_display_number": 2,
 
   "sponsor_duration": 8000,
   "show_greg": true
